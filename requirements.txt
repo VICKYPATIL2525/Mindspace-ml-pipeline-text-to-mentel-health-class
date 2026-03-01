@@ -1,10 +1,5 @@
-fastapi
-uvicorn[standard]
-langchain
-langchain-core
-langgraph
+streamlit
 python-dotenv
 openai
+sarvamai
 requests
-pydantic
-python-multipart

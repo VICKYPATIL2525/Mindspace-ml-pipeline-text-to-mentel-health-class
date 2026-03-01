@@ -1,252 +1,325 @@
-# 🧠 MindSpace — Voice-Based AI Mental Health Screening Agent
+# Mindspace Voice Agent
 
-> **Disclaimer:** This is a prototype screening tool and is **NOT a medical diagnosis system**. If you or someone you know is in crisis, please contact a professional helpline immediately.
-
----
-
-## 1. Project Overview
-
-**MindSpace** is a voice-first AI agent that conducts a structured 3-step mental health screening conversation. It uses speech-to-text, LLM reasoning, and a state-machine conversation graph to guide users through a warm, empathetic well-being check-in.
-
-The AI assistant **Asha** greets users, obtains consent, assesses emotional state, and explores well-being topics — all through natural voice interaction.
+A collection of production-grade apps demonstrating **Sarvam AI** (Indian-language voice) and **Azure OpenAI** (LLM) integration for speech-to-text, text-to-speech, and conversational AI — with web-based frontends for the Chatbot and Speech-to-Text apps.
 
 ---
 
-## 2. Architecture
-
-### High-Level Flow
-
-```
-┌─────────────┐     audio      ┌──────────────┐    transcript    ┌─────────────────┐
-│   Browser    │ ──────────────▶│  Sarvam STT  │ ──────────────▶ │   FastAPI        │
-│  (mic input) │                │   Service    │                 │   Backend        │
-└─────────────┘                └──────────────┘                 └────────┬────────┘
-       ▲                                                                 │
-       │  response text                                                  ▼
-       │                                                        ┌─────────────────┐
-       └────────────────────────────────────────────────────────│  LangGraph       │
-                                                                │  Conversation    │
-                                                                │  State Machine   │
-                                                                └────────┬────────┘
-                                                                         │
-                                                                         ▼
-                                                                ┌─────────────────┐
-                                                                │  Azure OpenAI   │
-                                                                │  GPT-4o-mini    │
-                                                                └─────────────────┘
-```
-
-### Conversation State Machine
-
-```
-START ──▶ GREETING ──▶ CONSENT ──┬──▶ EMOTIONAL_CHECK ──▶ GUIDED_CONVERSATION ──▶ END
-                                 │
-                                 ├──▶ CONSENT (re-ask if ambiguous)
-                                 │
-                                 └──▶ END (if user declines)
-```
-
-### Project Structure
+## Project Structure
 
 ```
 Mindspace-voice-agent/
-├── backend/
-│   ├── __init__.py
-│   ├── main.py                    # FastAPI application & endpoints
-│   ├── config.py                  # Environment variable loader
-│   ├── conversation_agent.py      # High-level conversation orchestrator
-│   ├── state.py                   # Pydantic state & enum definitions
-│   │
-│   ├── skills/                    # Markdown-based skill prompts
-│   │   ├── greeting.md
-│   │   ├── consent.md
-│   │   ├── emotion_check.md
-│   │   ├── guided_conversation.md
-│   │   └── empathy.md
-│   │
-│   ├── prompts/                   # System & extraction prompts
-│   │   ├── system_prompt.md
-│   │   └── extraction_prompt.md
-│   │
-│   ├── services/                  # External service integrations
-│   │   ├── __init__.py
-│   │   ├── sarvam_stt.py          # Sarvam AI speech-to-text
-│   │   └── llm_service.py         # Azure OpenAI chat & extraction
-│   │
-│   ├── graph/                     # LangGraph state machine
-│   │   ├── __init__.py
-│   │   └── mindspace_graph.py     # Graph nodes, edges, and routing
-│   │
-│   └── memory/                    # Session memory management
-│       ├── __init__.py
-│       └── session_memory.py
+├── .env                        # API keys and configuration
+├── requirements.txt            # Python dependencies
+├── README.md
 │
-├── frontend/
-│   ├── index.html                 # Minimal UI
-│   ├── app.js                     # Frontend logic & audio recording
-│   └── style.css                  # Dark-themed styling
+├── chatbot/                    # App 1: Web Chatbot
+│   ├── server.py               # FastAPI backend (port 8001)
+│   ├── static/
+│   │   ├── index.html          # Chat UI
+│   │   ├── style.css
+│   │   └── script.js
+│   └── output/
+│       └── chatbot_trace.json  # Auto-saved conversation trace
 │
-├── .env                           # API keys (not committed to git)
-├── requirements.txt               # Python dependencies
-└── README.md                      # This file
+├── speech-to-text/             # App 2: Speech-to-Text
+│   ├── server.py               # FastAPI backend (port 8002)
+│   ├── static/
+│   │   ├── index.html          # Upload & transcribe UI
+│   │   ├── style.css
+│   │   └── script.js
+│   ├── uploads/                # Uploaded audio files
+│   └── output/
+│       └── stt_output.json     # Transcription report
+│
+├── topic-to-speech/            # App 3: Topic → TTS (terminal)
+│   ├── app.py
+│   └── output/
+│       ├── tts_output.json
+│       └── output_speech.wav
+│
+├── marathi-demo-audio.mp4      # Sample Marathi audio
+└── myenv/                      # Virtual environment
 ```
 
 ---
 
-## 3. Setup Instructions
+## Setup
 
-### Prerequisites
-
-- Python 3.10+
-- A microphone-enabled browser (Chrome recommended)
-- API keys for:
-  - **Azure OpenAI** (GPT-4o-mini deployment)
-  - **Sarvam AI** (Speech-to-Text)
-
-### Installation
+### 1. Create virtual environment
 
 ```bash
-# 1. Clone the repository
-git clone <repo-url>
-cd Mindspace-voice-agent
-
-# 2. Create a virtual environment
 python -m venv myenv
+myenv\Scripts\Activate.ps1       # Windows PowerShell
+# or
+source myenv/bin/activate        # macOS/Linux
+```
 
-# 3. Activate it
-# Windows:
-myenv\Scripts\activate
-# macOS/Linux:
-source myenv/bin/activate
+### 2. Install dependencies
 
-# 4. Install dependencies
+```bash
 pip install -r requirements.txt
 ```
 
----
+### 3. Configure environment variables
 
-## 4. Environment Variables
-
-Create a `.env` file in the project root with the following:
+Create a `.env` file in the project root:
 
 ```env
-OPENAI_API_KEY=your_azure_openai_api_key
-AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
-AZURE_OPENAI_VERSION=2024-12-01-preview
-AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
+# Sarvam AI
 SARVAM_API_KEY=your_sarvam_api_key
 SARVAM_ENDPOINT=https://api.sarvam.ai/v1
+
+# Azure OpenAI
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
+AZURE_OPENAI_KEY=your_azure_openai_key
+AZURE_OPENAI_DEPLOYMENT=gpt-4.1-mini
+AZURE_OPENAI_API_VERSION=2024-12-01-preview
 ```
 
-| Variable | Description |
-|---|---|
-| `OPENAI_API_KEY` | Azure OpenAI API key |
-| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI resource endpoint |
-| `AZURE_OPENAI_VERSION` | API version string |
-| `AZURE_OPENAI_DEPLOYMENT` | Deployment name (default: `gpt-4o-mini`) |
-| `SARVAM_API_KEY` | Sarvam AI subscription key |
-| `SARVAM_ENDPOINT` | Sarvam API base URL |
+- **Sarvam AI key**: Get from [Sarvam AI Dashboard](https://dashboard.sarvam.ai/)
+- **Azure OpenAI key**: Get from [Azure Portal](https://portal.azure.com/)
 
 ---
 
-## 5. Running the Server
+## Apps
+
+### App 1: Chatbot (`chatbot/`)
+
+Web-based multi-turn chatbot with a modern chat UI, powered by Azure OpenAI GPT-4.1 Mini.
 
 ```bash
-# From the project root, with the virtual environment activated:
-uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+cd chatbot
+python server.py
+# Open http://localhost:8001
 ```
 
-Then open your browser to:
+- Real-time chat interface (HTML/CSS/JS)
+- Per-turn timing and token usage displayed in the UI
+- Auto-saves conversation trace to `output/chatbot_trace.json`
+- Session reset via UI button
 
-- **Frontend UI:** [http://localhost:8000/app](http://localhost:8000/app)
-- **API docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
+### App 2: Speech-to-Text (`speech-to-text/`)
+
+Web UI for uploading audio files and getting transcription via Sarvam AI STT.
+
+```bash
+cd speech-to-text
+python server.py
+# Open http://localhost:8002
+```
+
+- Drag & drop or file picker for audio upload
+- Supports WAV, MP3, MP4, M4A, OGG, FLAC, WebM, AAC
+- Language selector (11 Indian languages)
+- Model selector (Saarika v2, v2.5, Saaras v2)
+- REST API for short audio (≤30s) with auto-fallback to Batch API for longer files
+- Saves full transcription report to `output/stt_output.json`
+- Copy transcript & download JSON from the UI
+
+### App 3: Topic → AI Content → Speech (`topic-to-speech/`)
+
+Terminal app: enter a topic → Azure OpenAI generates text → Sarvam AI converts to speech.
+
+```bash
+cd topic-to-speech
+python app.py
+```
+
+- Generates content in any supported Indian language
+- TTS via Sarvam SDK (`bulbul:v2`)
+- Audio saved to `output/output_speech.wav`
+- Pipeline report saved to `output/tts_output.json`
 
 ---
 
-## 6. System Workflow
+## Sarvam AI API Reference
 
-### API Endpoints
+### SDK: `sarvamai` (v0.1.25)
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/start` | Start a new screening session |
-| `POST` | `/api/chat` | Send text message to session |
-| `POST` | `/api/voice` | Send audio for STT + conversation |
-| `GET` | `/api/summary/{id}` | Get session memory summary |
+Install: `pip install sarvamai`
 
-### Conversation Flow
+```python
+from sarvamai import SarvamAI
 
-1. **User clicks "Start Screening"** → `POST /api/start`
-   - Creates a new session
-   - LangGraph runs `GREETING → CONSENT` nodes
-   - Returns Asha's greeting and consent prompt
+client = SarvamAI(api_subscription_key="YOUR_API_KEY")
+```
 
-2. **User speaks** → Audio recorded in browser → `POST /api/voice`
-   - Audio sent to Sarvam STT for transcription
-   - Transcript processed by conversation agent
-   - LLM generates response + extracts structured data
-   - State machine advances to next phase
+### Available SDK Methods
 
-3. **Repeat** until all phases are complete (or user declines consent)
+| Method | Description |
+|--------|-------------|
+| `client.speech_to_text.transcribe()` | REST STT — audio under 30s |
+| `client.speech_to_text_job.create_job()` | Batch STT — audio up to 1 hour |
+| `client.speech_to_text_streaming` | Streaming/WebSocket STT |
+| `client.text_to_speech.convert()` | REST TTS — text to audio |
+| `client.text_to_speech_streaming` | Streaming TTS |
+| `client.text.translate()` | Text translation |
+| `client.chat` | Chat completions |
+| `client.document_intelligence` | Document processing |
 
-4. **Session ends** → Summary available via `/api/summary/{id}`
+### Speech-to-Text (REST)
 
-### Session Memory Schema
+For audio **under 30 seconds**. Use the Batch API for longer audio.
+
+```python
+response = client.speech_to_text.transcribe(
+    file=open("audio.wav", "rb"),
+    model="saarika:v2.5",          # or "saaras:v3"
+    language_code="mr-IN",
+    # mode="transcribe",           # saaras:v3 only: transcribe|translate|verbatim|translit|codemix
+)
+print(response.transcript)
+```
+
+**Endpoint:** `POST https://api.sarvam.ai/speech-to-text`
+
+### Speech-to-Text (Batch API)
+
+For audio **up to 1 hour**. Supports diarization.
+
+```python
+job = client.speech_to_text_job.create_job(
+    model="saaras:v3",
+    mode="transcribe",
+    language_code="mr-IN",
+    with_diarization=True,
+    num_speakers=2,
+)
+job.upload_files(file_paths=["long_audio.mp4"])
+job.start()
+job.wait_until_complete()
+
+results = job.get_file_results()
+job.download_outputs(output_dir="./output")
+```
+
+### Text-to-Speech
+
+```python
+response = client.text_to_speech.convert(
+    text="नमस्ते, कसे आहात?",
+    target_language_code="mr-IN",
+    speaker="anushka",              # bulbul:v2 speakers
+    model="bulbul:v2",
+)
+# response.audios[0] → base64-encoded WAV audio
+```
+
+**Endpoint:** `POST https://api.sarvam.ai/text-to-speech`
+
+### STT Models
+
+| Model | Best For | Max Duration |
+|-------|----------|-------------|
+| `saarika:v2.5` | Quick REST transcription | 30 seconds |
+| `saaras:v3` | Advanced features, batch processing | 1 hour (batch) |
+
+#### `saaras:v3` Modes
+
+| Mode | Output |
+|------|--------|
+| `transcribe` | Standard transcription in source language |
+| `translate` | Transcribe + translate to English |
+| `verbatim` | Word-for-word including fillers |
+| `translit` | Romanized (Latin script) output |
+| `codemix` | Code-mixed (English words in English, Indic in native script) |
+
+### TTS Models
+
+| Model | Speakers | Max Chars | Controls |
+|-------|----------|-----------|----------|
+| `bulbul:v2` | Anushka, Manisha, Vidya, Arya (F) / Abhilash, Karun, Hitesh (M) | 1500 | pitch, pace, loudness |
+| `bulbul:v3` | 39 voices (Shubh default) | 2500 | pace, temperature |
+
+### Supported Languages
+
+| Code | Language | STT | TTS |
+|------|----------|-----|-----|
+| `hi-IN` | Hindi | ✅ | ✅ |
+| `en-IN` | English | ✅ | ✅ |
+| `mr-IN` | Marathi | ✅ | ✅ |
+| `ta-IN` | Tamil | ✅ | ✅ |
+| `te-IN` | Telugu | ✅ | ✅ |
+| `kn-IN` | Kannada | ✅ | ✅ |
+| `ml-IN` | Malayalam | ✅ | ✅ |
+| `bn-IN` | Bengali | ✅ | ✅ |
+| `gu-IN` | Gujarati | ✅ | ✅ |
+| `pa-IN` | Punjabi | ✅ | ✅ |
+| `od-IN` | Odia | ✅ | ✅ |
+| `as-IN` | Assamese | ✅ (v3) | ❌ |
+| `ur-IN` | Urdu | ✅ (v3) | ❌ |
+| `ne-IN` | Nepali | ✅ (v3) | ❌ |
+
+### Supported Audio Formats (STT)
+
+WAV, MP3, AAC, AIFF, OGG, OPUS, FLAC, MP4/M4A, AMR, WMA, WebM, PCM
+
+### REST API Base URL
+
+```
+https://api.sarvam.ai
+```
+
+> **Note:** Do NOT append `/v1` to the base URL for REST endpoints. The correct endpoint is `https://api.sarvam.ai/speech-to-text` (not `https://api.sarvam.ai/v1/speech-to-text`).
+
+---
+
+## JSON Output Examples
+
+### `stt_output.json` (App 2)
 
 ```json
 {
-    "consent": true,
-    "mood": "anxious and tired",
-    "sleep_quality": "poor, waking up multiple times",
-    "stress_source": "work deadlines",
-    "recent_events": "conflict with a colleague",
-    "support_system": "close friend and partner"
+  "pipeline": "Speech-to-Text (Sarvam AI Batch SDK)",
+  "timestamp": "2026-03-01T...",
+  "input": { "source_file": "marathi-demo-audio.mp4", "language_code": "mr-IN" },
+  "output": { "transcript": "..." },
+  "tracing": {
+    "job_create_time": 0.5,
+    "upload_time": 2.1,
+    "processing_time": 45.3,
+    "total_time_seconds": 48.2,
+    "status": "success"
+  }
+}
+```
+
+### `tts_output.json` (App 3)
+
+```json
+{
+  "pipeline": "Topic → AI Content → Text-to-Speech",
+  "timestamp": "2026-03-01T...",
+  "input": { "topic": "bharat maza desh ahe", "language_code": "hi-IN" },
+  "output": { "generated_text": "...", "audio_file": "output_speech.wav" },
+  "tracing": {
+    "total_time_seconds": 5.2,
+    "steps": [
+      { "step": "content_generation", "provider": "Azure OpenAI", "time_seconds": 2.1 },
+      { "step": "text_to_speech", "provider": "Sarvam AI (SDK)", "time_seconds": 3.1 }
+    ]
+  }
 }
 ```
 
 ---
 
-## 7. Limitations
+## Tech Stack
 
-- **No persistent storage** — sessions are in-memory only (lost on server restart)
-- **No voice emotion detection** — only text-based analysis
-- **Single language per session** — STT language is selected at the start
-- **No authentication** — prototype does not implement user auth
-- **Not clinically validated** — this is a technology demonstration, not a medical tool
-- **No TTS** — responses are text-only (no text-to-speech playback)
-
----
-
-## 8. Future Improvements
-
-### TODO
-
-- [ ] Add **voice emotion detection** (prosody, tone analysis)
-- [ ] Add **facial emotion analysis** via webcam
-- [ ] Add **risk scoring engine** based on PHQ-9 / GAD-7 scales
-- [ ] Add **Tele-MANAS escalation** for high-risk detection
-- [ ] **Multilingual support** with dynamic language switching
-- [ ] **Persistent user memory** with database backend
-- [ ] **Text-to-speech** response playback (Sarvam TTS)
-- [ ] **Production deployment** with Docker + cloud hosting
-- [ ] **User authentication** and data encryption
-- [ ] **Therapist dashboard** for reviewing session summaries
+- **Python 3.10+**
+- **Azure OpenAI** — GPT-4.1 Mini for LLM/chat
+- **Sarvam AI** — Indian-language STT & TTS
+- **sarvamai SDK** (v0.1.25) — Official Python SDK
+- **LangChain** — Framework for LLM apps
+- **python-dotenv** — Environment variable management
 
 ---
 
-## 9. Safety
+## Links
 
-This system includes safety protocols:
-
-- If a user expresses suicidal ideation or self-harm intent, the agent provides helpline numbers (**Tele-MANAS: 14416**, **iCall: 9152987821**) and stops the screening.
-- Every session includes a clear disclaimer that this is not a medical diagnosis.
-
----
-
-## License
-
-This project is a prototype for educational and research purposes.
-
----
-
-*Built with FastAPI, LangGraph, Azure OpenAI, and Sarvam AI.*
+- [Sarvam AI Docs](https://docs.sarvam.ai)
+- [Sarvam AI Dashboard](https://dashboard.sarvam.ai)
+- [Sarvam STT API](https://docs.sarvam.ai/api-reference-docs/speech-to-text)
+- [Sarvam TTS API](https://docs.sarvam.ai/api-reference-docs/text-to-speech)
+- [Sarvam Batch STT Guide](https://docs.sarvam.ai/api-reference-docs/api-guides-tutorials/speech-to-text/batch-api)
+- [Azure OpenAI Docs](https://learn.microsoft.com/en-us/azure/ai-services/openai/)
