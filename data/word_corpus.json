@@ -37,5 +37,19 @@
     "my",
     "mine",
     "myself"
-  ]
+  ],
+  "fillers_english": [
+    "um",
+    "uh",
+    "erm",
+    "hmm",
+    "like",
+    "you know",
+    "I mean",
+    "sort of",
+    "kind of",
+    "well",
+    "so",
+    "right"
+  ] 
 }
