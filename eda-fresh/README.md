@@ -333,3 +333,4 @@ pip install pandas numpy matplotlib seaborn scikit-learn
 ---
 
 *This README documents the EDA notebook for the Mindspace Voice Agent project.*
+## Minute changes to the README to reflect the final state of the notebook after running it and filling in the key findings. The structure and content remain the same, but the "Key Findings" section is now populated with actual insights derived from the analysis.
