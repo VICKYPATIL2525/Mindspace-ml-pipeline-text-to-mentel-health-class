@@ -1,0 +1,74 @@
+{
+  "dataset": {
+    "rows": 100000,
+    "cols": 66,
+    "classes": [
+      "Anxiety",
+      "Bipolar_Mania",
+      "Depression",
+      "Phobia",
+      "Stress",
+      "Suicidal_Tendency"
+    ],
+    "imbalance_ratio": 2.549
+  },
+  "top_10_features_by_rf_importance": {
+    "overall_sentiment_score": 0.1564,
+    "semantic_coherence_score": 0.1391,
+    "fear_word_frequency": 0.08,
+    "self_reference_density": 0.0758,
+    "topic_3": 0.0702,
+    "anger_word_frequency": 0.0647,
+    "uncertainty_word_frequency": 0.055,
+    "future_focus_ratio": 0.0547,
+    "filler_word_frequency": 0.0502,
+    "sadness_word_frequency": 0.0461
+  },
+  "top_10_discriminative_features_kw": {
+    "overall_sentiment_score": 46792.35,
+    "self_reference_density": 41168.36,
+    "future_focus_ratio": 40253.12,
+    "positive_emotion_ratio": 36998.45,
+    "semantic_coherence_score": 36477.5,
+    "sadness_word_frequency": 30252.51,
+    "fear_word_frequency": 27614.38,
+    "uncertainty_word_frequency": 26976.9,
+    "negative_emotion_ratio": 22838.09,
+    "rumination_phrase_frequency": 21270.07
+  },
+  "statistically_significant_features_count": 24,
+  "pca_embedding_variance_explained_pct": 7.05,
+  "output_files": {
+    "charts": [
+      "02_class_distribution.png",
+      "03_feature_median_heatmap.png",
+      "04_kde_distributions.png",
+      "05_boxplots_by_class.png",
+      "06_correlation_heatmap.png",
+      "07_kruskal_wallis_top20.png",
+      "08_rf_feature_importance.png",
+      "09_pca_embeddings.png",
+      "10_topic_heatmap.png",
+      "11_language_distribution.png",
+      "12_pairplot_top4_features.png"
+    ],
+    "stats": [
+      "01_numeric_summary.csv",
+      "01_overview.json",
+      "02_class_distribution.json",
+      "03_feature_means_per_class.csv",
+      "03_feature_medians_per_class.csv",
+      "06_correlation_matrix.csv",
+      "07_kruskal_wallis_tests.csv",
+      "07_kruskal_wallis_tests.json",
+      "07_significance_summary.json",
+      "08_rf_feature_importance.csv",
+      "08_rf_feature_importance.json",
+      "08_top10_important_features.json",
+      "09_pca_info.json",
+      "10_topic_means_per_class.csv",
+      "11_language_distribution.csv",
+      "11_language_distribution.json"
+    ]
+  }
+}

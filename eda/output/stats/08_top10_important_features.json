@@ -1,0 +1,12 @@
+{
+  "overall_sentiment_score": 0.1564,
+  "semantic_coherence_score": 0.1391,
+  "fear_word_frequency": 0.08,
+  "self_reference_density": 0.0758,
+  "topic_3": 0.0702,
+  "anger_word_frequency": 0.0647,
+  "uncertainty_word_frequency": 0.055,
+  "future_focus_ratio": 0.0547,
+  "filler_word_frequency": 0.0502,
+  "sadness_word_frequency": 0.0461
+}

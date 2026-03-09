@@ -1,0 +1,26 @@
+{
+  "english": {
+    "Anxiety": 9084,
+    "Bipolar_Mania": 6650,
+    "Depression": 11137,
+    "Phobia": 4539,
+    "Stress": 9006,
+    "Suicidal_Tendency": 4366
+  },
+  "hindi": {
+    "Anxiety": 6891,
+    "Bipolar_Mania": 5345,
+    "Depression": 8737,
+    "Phobia": 3556,
+    "Stress": 6989,
+    "Suicidal_Tendency": 3507
+  },
+  "marathi": {
+    "Anxiety": 3957,
+    "Bipolar_Mania": 3062,
+    "Depression": 5172,
+    "Phobia": 1984,
+    "Stress": 4065,
+    "Suicidal_Tendency": 1953
+  }
+}

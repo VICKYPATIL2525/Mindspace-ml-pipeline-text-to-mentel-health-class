@@ -1,0 +1,247 @@
+{
+  "metadata": {
+    "project": "Mindspace Voice Agent",
+    "source": "EDA Feature Importance Analysis — eda-fresh/eda.ipynb",
+    "methods_used": [
+      "Random Forest MDI (Mean Decrease in Impurity)",
+      "Permutation Importance (on test set)",
+      "Mutual Information"
+    ],
+    "ranking_method": "Consensus — average rank position across all 3 methods",
+    "date": "2026-03-06"
+  },
+
+  "feature_importance_tiers": {
+
+    "tier_1_highest": {
+      "label": "Tier 1 — Highest Importance",
+      "description": "Top predictors that appear in top ranks across all 3 methods. Most robust and reliable features for mental state classification. Should always be included in any model.",
+      "features": [
+        {
+          "name": "overall_sentiment_score",
+          "reason": "Single most direct signal — negative sentiment strongly correlates with distress across all classes"
+        },
+        {
+          "name": "fear_word_frequency",
+          "reason": "Strongly linked to Anxiety and PTSD classes; clinical indicator of heightened threat perception"
+        },
+        {
+          "name": "sadness_word_frequency",
+          "reason": "Strongly linked to Depression; high sadness word usage mirrors clinical low mood symptoms"
+        },
+        {
+          "name": "negative_emotion_ratio",
+          "reason": "Broad negative emotion signal — captures overall emotional negativity across all distressed mental states"
+        },
+        {
+          "name": "self_reference_density",
+          "reason": "High I/me/my usage is a well-established clinical marker for depression and self-focused rumination"
+        },
+        {
+          "name": "rumination_phrase_frequency",
+          "reason": "Repetitive negative thinking patterns in speech are core symptoms of both depression and anxiety"
+        }
+      ]
+    },
+
+    "tier_2_strong": {
+      "label": "Tier 2 — Strong Importance",
+      "description": "Reliable secondary predictors that appear in the top 20 of most methods. Add significant value alongside Tier 1 features.",
+      "features": [
+        {
+          "name": "positive_emotion_ratio",
+          "reason": "Inverse of negative emotion — key for separating the Normal/healthy class from distressed classes"
+        },
+        {
+          "name": "uncertainty_word_frequency",
+          "reason": "Words like maybe, I don't know, what if are linguistic markers of anxious thought patterns"
+        },
+        {
+          "name": "anger_word_frequency",
+          "reason": "Elevated anger expression is a distinguishing marker for Bipolar disorder and PTSD classes"
+        },
+        {
+          "name": "semantic_coherence_score",
+          "reason": "Psychosis and mania show low coherence; depression shows coherent but narrow, negative-focused speech"
+        },
+        {
+          "name": "future_focus_ratio",
+          "reason": "Depression keeps people stuck in past tense; anxiety fixates on feared future outcomes"
+        },
+        {
+          "name": "semantic_embeddings (emb_0 to emb_31)",
+          "columns": [
+            "emb_0",  "emb_1",  "emb_2",  "emb_3",  "emb_4",  "emb_5",  "emb_6",  "emb_7",
+            "emb_8",  "emb_9",  "emb_10", "emb_11", "emb_12", "emb_13", "emb_14", "emb_15",
+            "emb_16", "emb_17", "emb_18", "emb_19", "emb_20", "emb_21", "emb_22", "emb_23",
+            "emb_24", "emb_25", "emb_26", "emb_27", "emb_28", "emb_29", "emb_30", "emb_31"
+          ],
+          "count": 32,
+          "reason": "32-dimensional dense semantic embeddings of the speech/text. They encode rich contextual meaning beyond surface-level word counts — capturing tone, topic, and intent. Individual dimensions are not interpretable on their own, but collectively they carry strong discriminative signal confirmed by all 3 importance methods."
+        }
+      ]
+    },
+
+    "tier_3_moderate": {
+      "label": "Tier 3 — Moderate Importance",
+      "description": "Provide supporting signal but are less consistent across methods. Useful as supplementary features, especially in tree-based models.",
+      "features": [
+        {
+          "name": "total_word_count",
+          "reason": "Depression typically produces fewer words; manic states produce more — verbosity is a behavioural signal"
+        },
+        {
+          "name": "ttr",
+          "reason": "Type-Token Ratio measures vocabulary diversity — low TTR can indicate cognitive slowdown or fixation"
+        },
+        {
+          "name": "filler_word_frequency",
+          "reason": "High filler usage (um, uh, like) indicates cognitive load, disorganised thought, or anxiety"
+        },
+        {
+          "name": "repetition_rate",
+          "reason": "Rumination manifests as repetition of words and phrases in speech"
+        },
+        {
+          "name": "topic_shift_frequency",
+          "reason": "Rapid topic shifting is a marker for mania; staying stuck on one negative topic signals depression"
+        },
+        {
+          "name": "parse_tree_depth",
+          "reason": "Syntactic sentence complexity varies with cognitive state — shallow trees can indicate disorganised thought"
+        }
+      ]
+    },
+
+    "tier_4_lower": {
+      "label": "Tier 4 — Lower Importance",
+      "description": "Weak standalone predictors. Either redundant with higher-tier features or too dataset-specific. Consider dropping these to reduce noise.",
+      "features": [
+        {
+          "name": "past_focus_ratio",
+          "reason": "Some signal but heavily overlaps with future_focus_ratio and sentiment features"
+        },
+        {
+          "name": "present_focus_ratio",
+          "reason": "Very weak standalone signal — does not reliably distinguish mental states"
+        },
+        {
+          "name": "noun_ratio",
+          "reason": "Mild POS-level signal, mostly already captured by emotional and embedding features"
+        },
+        {
+          "name": "verb_ratio",
+          "reason": "Mild POS-level signal, mostly already captured by emotional and embedding features"
+        },
+        {
+          "name": "adjective_ratio",
+          "reason": "Mild POS-level signal, mostly already captured by emotional and embedding features"
+        },
+        {
+          "name": "adverb_ratio",
+          "reason": "Mild POS-level signal, mostly already captured by emotional and embedding features"
+        },
+        {
+          "name": "language_model_perplexity",
+          "reason": "Useful for detecting severe speech disorganisation, but noisy and inconsistent across classes"
+        },
+        {
+          "name": "unique_word_count",
+          "reason": "Largely redundant — total_word_count and ttr already capture the same information"
+        }
+      ]
+    }
+
+  },
+
+  "recommended_model_features": {
+    "description": "Final recommended feature set for the Mindspace classifier — Tier 1 + Tier 2 only. Confirmed predictive by all 3 importance methods.",
+    "total_features": 43,
+
+    "interpretable_features": {
+      "count": 11,
+      "features": [
+        {
+          "name": "overall_sentiment_score",
+          "tier": 1,
+          "reason": "Single most direct signal for mental state — negative sentiment strongly correlates with distress across all classes"
+        },
+        {
+          "name": "fear_word_frequency",
+          "tier": 1,
+          "reason": "Strongly linked to Anxiety and PTSD classes; presence of fear words is a clinical indicator of heightened threat perception"
+        },
+        {
+          "name": "sadness_word_frequency",
+          "tier": 1,
+          "reason": "Strongly linked to Depression; high sadness word usage mirrors clinical low mood symptoms"
+        },
+        {
+          "name": "negative_emotion_ratio",
+          "tier": 1,
+          "reason": "Captures overall emotional negativity — a broad signal that spans all distressed mental states"
+        },
+        {
+          "name": "self_reference_density",
+          "tier": 1,
+          "reason": "High I/me/my usage is a well-established clinical marker for depression and self-focused rumination"
+        },
+        {
+          "name": "rumination_phrase_frequency",
+          "tier": 1,
+          "reason": "Repetitive negative thinking patterns expressed in speech are core symptoms of both depression and anxiety"
+        },
+        {
+          "name": "positive_emotion_ratio",
+          "tier": 2,
+          "reason": "Inverse of negative emotion — key for separating the Normal/healthy class from all distressed classes"
+        },
+        {
+          "name": "uncertainty_word_frequency",
+          "tier": 2,
+          "reason": "Words like maybe, I don't know, what if are direct linguistic markers of anxious thought patterns"
+        },
+        {
+          "name": "anger_word_frequency",
+          "tier": 2,
+          "reason": "Elevated anger expression is a distinguishing marker for Bipolar disorder and PTSD classes"
+        },
+        {
+          "name": "semantic_coherence_score",
+          "tier": 2,
+          "reason": "Measures logical connectedness of speech — psychosis and mania show low coherence; depression shows narrow but coherent negative speech"
+        },
+        {
+          "name": "future_focus_ratio",
+          "tier": 2,
+          "reason": "Temporal language focus is diagnostic — depression keeps people in the past; anxiety fixates on feared future outcomes"
+        }
+      ]
+    },
+
+    "embedding_features": {
+      "tier": 2,
+      "count": 32,
+      "columns": [
+        "emb_0",  "emb_1",  "emb_2",  "emb_3",  "emb_4",  "emb_5",  "emb_6",  "emb_7",
+        "emb_8",  "emb_9",  "emb_10", "emb_11", "emb_12", "emb_13", "emb_14", "emb_15",
+        "emb_16", "emb_17", "emb_18", "emb_19", "emb_20", "emb_21", "emb_22", "emb_23",
+        "emb_24", "emb_25", "emb_26", "emb_27", "emb_28", "emb_29", "emb_30", "emb_31"
+      ],
+      "reason": "32-dimensional dense semantic embeddings of the speech/text. They encode rich contextual meaning that goes beyond surface-level word counts — capturing tone, topic, and intent. Individual dimensions are not independently interpretable, but collectively they carry strong discriminative signal confirmed by all 3 importance methods."
+    }
+  },
+
+  "features_to_drop": {
+    "description": "These features are redundant, weak, or already captured by stronger features. Dropping them reduces noise without hurting model performance.",
+    "features": [
+      { "name": "unique_word_count",   "reason": "Redundant with total_word_count and ttr" },
+      { "name": "past_focus_ratio",    "reason": "Overlaps with future_focus_ratio and sentiment features" },
+      { "name": "present_focus_ratio", "reason": "Weak standalone signal that does not reliably distinguish mental states" },
+      { "name": "noun_ratio",          "reason": "Already captured by emotional and embedding features" },
+      { "name": "verb_ratio",          "reason": "Already captured by emotional and embedding features" },
+      { "name": "adjective_ratio",     "reason": "Already captured by emotional and embedding features" },
+      { "name": "adverb_ratio",        "reason": "Already captured by emotional and embedding features" }
+    ]
+  }
+}

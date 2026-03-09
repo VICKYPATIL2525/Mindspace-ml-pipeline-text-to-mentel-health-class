@@ -1,0 +1,126 @@
+{
+  "total_word_count": {
+    "H_statistic": 18482.3715,
+    "p_value": 0.0
+  },
+  "unique_word_count": {
+    "H_statistic": 14401.7253,
+    "p_value": 0.0
+  },
+  "ttr": {
+    "H_statistic": 3.092,
+    "p_value": 0.6858063416169375
+  },
+  "positive_emotion_ratio": {
+    "H_statistic": 36998.4487,
+    "p_value": 0.0
+  },
+  "negative_emotion_ratio": {
+    "H_statistic": 22838.0917,
+    "p_value": 0.0
+  },
+  "fear_word_frequency": {
+    "H_statistic": 27614.3821,
+    "p_value": 0.0
+  },
+  "sadness_word_frequency": {
+    "H_statistic": 30252.5087,
+    "p_value": 0.0
+  },
+  "anger_word_frequency": {
+    "H_statistic": 18005.2844,
+    "p_value": 0.0
+  },
+  "uncertainty_word_frequency": {
+    "H_statistic": 26976.8969,
+    "p_value": 0.0
+  },
+  "filler_word_frequency": {
+    "H_statistic": 15777.0354,
+    "p_value": 0.0
+  },
+  "repetition_rate": {
+    "H_statistic": 0.8156,
+    "p_value": 0.9760246940063876
+  },
+  "rumination_phrase_frequency": {
+    "H_statistic": 21270.0705,
+    "p_value": 0.0
+  },
+  "semantic_coherence_score": {
+    "H_statistic": 36477.4974,
+    "p_value": 0.0
+  },
+  "language_model_perplexity": {
+    "H_statistic": 8248.5042,
+    "p_value": 0.0
+  },
+  "overall_sentiment_score": {
+    "H_statistic": 46792.3507,
+    "p_value": 0.0
+  },
+  "past_focus_ratio": {
+    "H_statistic": 717.4065,
+    "p_value": 8.461302908577229e-153
+  },
+  "present_focus_ratio": {
+    "H_statistic": 5000.0575,
+    "p_value": 0.0
+  },
+  "future_focus_ratio": {
+    "H_statistic": 40253.1234,
+    "p_value": 0.0
+  },
+  "noun_ratio": {
+    "H_statistic": 5.6034,
+    "p_value": 0.34673552247965944
+  },
+  "verb_ratio": {
+    "H_statistic": 0.574,
+    "p_value": 0.9891618258990261
+  },
+  "adjective_ratio": {
+    "H_statistic": 8.4453,
+    "p_value": 0.13334041445132835
+  },
+  "adverb_ratio": {
+    "H_statistic": 8.5399,
+    "p_value": 0.12888507375777117
+  },
+  "avg_sentence_length": {
+    "H_statistic": 16490.9159,
+    "p_value": 0.0
+  },
+  "parse_tree_depth": {
+    "H_statistic": 5.8635,
+    "p_value": 0.31972493550711073
+  },
+  "topic_shift_frequency": {
+    "H_statistic": 345.7544,
+    "p_value": 1.4358673376493882e-72
+  },
+  "self_reference_density": {
+    "H_statistic": 41168.3628,
+    "p_value": 0.0
+  },
+  "topic_0": {
+    "H_statistic": 1995.9258,
+    "p_value": 0.0
+  },
+  "topic_1": {
+    "H_statistic": 1847.3214,
+    "p_value": 0.0
+  },
+  "topic_2": {
+    "H_statistic": 1949.0167,
+    "p_value": 0.0
+  },
+  "topic_3": {
+    "H_statistic": 12106.7079,
+    "p_value": 0.0
+  },
+  "topic_4": {
+    "H_statistic": 2010.3655,
+    "p_value": 0.0
+  }
+}
