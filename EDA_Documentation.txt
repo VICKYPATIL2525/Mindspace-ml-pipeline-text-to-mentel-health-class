@@ -183,6 +183,32 @@ WHAT WE UNDERSTOOD:
   - Features with uniform colors across all classes (no variation) are less
     useful for classification
 
+  ACTUAL PATTERNS FOUND (class signatures from heatmap):
+
+    Suicidal Tendency → Extreme negative sentiment (-0.90), highest sadness
+      words (0.115), highest self-reference (0.127), lowest positive emotion
+      (0.012). The MOST distinct class — stands out clearly on the heatmap.
+
+    Depression → Very negative sentiment (-0.32), high sadness (0.065), high
+      self-reference (0.100), high negative emotion (0.091). Second most
+      distinct — similar direction as suicidal but less extreme.
+
+    Phobia → Highest fear words (0.089), unique topic_3 spike (0.385 vs
+      ~0.20 for others). Fear-driven pattern.
+
+    Anxiety → High fear words (0.064), mildly negative sentiment (-0.059).
+      Overlaps with Phobia on fear but less extreme.
+
+    Stress → Highest anger words (0.064, 2.5x higher than other classes).
+      Anger is its distinguishing signal.
+
+    Bipolar Mania → Moderate across all metrics, no single extreme value.
+      Hardest to distinguish from Anxiety and Stress.
+
+    Normal → Only class with POSITIVE sentiment (+0.071), lowest negative
+      emotion (0.027), lowest self-reference (0.025). Clear contrast to
+      all disorder classes.
+
 
 ================================================================================
  STEP 8: PER-CLASS FEATURE STATISTICS (ENHANCED WITH TOP 10 ANNOTATED HEATMAP)
@@ -205,6 +231,45 @@ WHAT WE UNDERSTOOD:
   - For example, sentiment score differences between depression and normal are
     visible and quantifiable
   - This builds confidence that these features carry genuine discriminative signal
+
+  EXACT NUMERIC VALUES FROM THE ANNOTATED HEATMAP (class means for top features):
+
+    Feature                  | Anxiety | Bipolar | Depression | Normal | Phobia | Stress | Suicidal
+    -------------------------+---------+---------+------------+--------+--------+--------+---------
+    overall_sentiment_score  | -0.059  | -0.058  |   -0.321   | +0.071 | -0.057 | -0.059 |  -0.904
+    self_reference_density   |  0.050  |  0.051  |    0.100   |  0.025 |  0.050 |  0.050 |   0.127
+    fear_word_frequency      |  0.064  |  0.026  |    0.026   |  0.013 |  0.089 |  0.026 |   0.025
+    sadness_word_frequency   |  0.033  |  0.033  |    0.065   |  0.016 |  0.032 |  0.033 |   0.115
+    anger_word_frequency     |  0.026  |  0.026  |    0.026   |  0.013 |  0.026 |  0.064 |   0.026
+    negative_emotion_ratio   |  0.053  |  0.053  |    0.091   |  0.027 |  0.053 |  0.054 |   0.131
+    positive_emotion_ratio   |  0.041  |  0.041  |    0.021   |  0.041 |  0.041 |  0.041 |   0.012
+
+  FEATURE-BY-FEATURE STRENGTH OF CORRELATION:
+
+    VERY STRONG:
+    - overall_sentiment_score → Suicidal Tendency (-0.90 vs others ~-0.06)
+      Gap of 0.84 units — by far the strongest signal in the entire dataset.
+
+    STRONG:
+    - sadness_word_frequency → Suicidal (0.115) & Depression (0.065) vs Normal (0.016)
+    - self_reference_density → Suicidal (0.127) & Depression (0.100) vs Normal (0.025)
+    - fear_word_frequency → Phobia (0.089) & Anxiety (0.064) vs Normal (0.013)
+    - anger_word_frequency → Stress (0.064) vs all others (~0.026)
+    - negative_emotion_ratio → Suicidal (0.131) & Depression (0.091) vs Normal (0.027)
+
+    MODERATE:
+    - positive_emotion_ratio → Normal (0.041) vs Suicidal (0.012)
+
+    WEAK:
+    - topic features → mostly similar across classes (0.19-0.21), except
+      Phobia on topic_3 (0.385 — a strong outlier)
+
+  WHICH CLASSES ARE EASY vs HARD TO SEPARATE:
+    - EASIEST: Suicidal Tendency — extreme values on multiple features
+    - EASY: Depression, Normal — clearly distinct patterns
+    - MODERATE: Phobia (fear signal), Stress (anger signal)
+    - HARDEST: Anxiety vs Bipolar vs Stress — very similar numbers on most
+      features, the model will struggle to tell these apart
 
 
 ================================================================================
