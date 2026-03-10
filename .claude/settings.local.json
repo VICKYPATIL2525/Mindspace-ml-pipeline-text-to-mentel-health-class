@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(for f in \"00_SUMMARY.json\" \"01_overview.json\" \"02_class_distribution.json\" \"07_kruskal_wallis_tests.json\" \"07_significance_summary.json\" \"08_rf_feature_importance.json\" \"08_top10_important_features.json\" \"09_pca_info.json\" \"11_language_distribution.json\")",
+      "Bash(do)",
+      "Bash(echo \"=== $f ===\")",
+      "Read(//c/Users/vicky/OneDrive/Desktop/SCS-projects/Mindspace-voice-agent/eda/output/**)",
+      "Bash(done)",
+      "Bash(STATS_DIR=\"/c/Users/vicky/OneDrive/Desktop/SCS-projects/Mindspace-voice-agent/eda/output/stats\")",
+      "Bash(for f in 00_SUMMARY.json 01_overview.json 02_class_distribution.json 07_kruskal_wallis_tests.json 07_significance_summary.json 08_rf_feature_importance.json 08_top10_important_features.json 09_pca_info.json 11_language_distribution.json)",
+      "Read(//c/Users/vicky/OneDrive/Desktop/SCS-projects/Mindspace-voice-agent/$STATS_DIR/**)",
+      "Bash(wc:*)",
+      "mcp__ide__executeCode"
+    ]
+  }
+}

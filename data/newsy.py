@@ -5,7 +5,7 @@ from tqdm import tqdm
 
 np.random.seed(42)
 
-ROWS = 100000
+ROWS = 50000
 EMB_DIM = 32
 TOPICS = 5
 
