@@ -1,0 +1,753 @@
+================================================================================
+ MENTAL HEALTH DATASET — EXPLORATORY DATA ANALYSIS (EDA) DOCUMENTATION
+ Notebook: EDAml.ipynb
+================================================================================
+
+PROJECT: Mindspace Voice Agent — Mental Health Classification
+DATASET: mental_health_synthetic_dataset_with_normal.csv
+PURPOSE: Understand the dataset deeply before building any ML model — its shape,
+         distributions, relationships, and which features are most useful for
+         telling apart different mental health classes.
+
+================================================================================
+ STEP 1: IMPORT LIBRARIES
+================================================================================
+
+WHAT WE DID:
+  Loaded all necessary Python libraries — pandas for data handling, matplotlib
+  and seaborn for charts, scipy for statistical tests, scikit-learn for ML-based
+  analysis (PCA, Random Forest feature importance, Mutual Information), and 
+  configured plotting styles with a fixed random seed (42).
+
+WHY WE DID IT:
+  Every analysis starts by setting up the tools. A fixed random seed ensures
+  our results are reproducible — anyone running the notebook gets the same
+  numbers and charts.
+
+WHAT WE UNDERSTOOD:
+  This confirmed that all required packages are available in our environment
+  and the notebook is ready for analysis.
+
+
+================================================================================
+ STEP 2: LOAD DATASET & IDENTIFY COLUMN GROUPS
+================================================================================
+
+WHAT WE DID:
+  Loaded the CSV file into a DataFrame. Displayed the first few rows, checked
+  column names and data types. Then categorized columns into 4 groups:
+    - Linguistic features (sentiment score, word counts, emotion ratios, etc.)
+    - Topic features (topic_0, topic_1, ... — probabilities from topic modeling)
+    - Embedding features (emb_0, emb_1, ... — dense vector text representations)
+    - Categorical columns (e.g., language)
+  Also identified the target column ("target") and all unique class labels.
+
+WHY WE DID IT:
+  Before any analysis, we need to know what data we have. Grouping columns by
+  type helps us apply the right analysis to the right features later. You cannot
+  run PCA on categorical columns, and you would not run chi-squared tests on
+  continuous embeddings.
+
+WHAT WE UNDERSTOOD:
+  The dataset contains multiple mental health classes plus "normal". Features
+  come from text analysis: sentiment scores, word frequency patterns, topic
+  distributions, and dense embeddings. This tells us it is a multi-class
+  classification problem with mixed numeric feature types.
+
+
+================================================================================
+ STEP 3: DATASET OVERVIEW & CLASS DISTRIBUTION
+================================================================================
+
+WHAT WE DID:
+  Checked the basics — total rows/columns, missing values, duplicate rows,
+  memory usage. Then analyzed the class distribution:
+    - Bar chart and pie chart of samples per class
+    - Imbalance ratio (largest class / smallest class)
+    - Shannon entropy (measure of balance; 100% = perfectly balanced)
+
+WHY WE DID IT:
+  If classes are heavily imbalanced, an ML model might be biased toward the
+  majority class (it gets "rewarded" for always predicting the biggest class).
+  We need to know this upfront so we can handle it later (e.g., class
+  weighting, stratified sampling, oversampling).
+
+WHAT WE UNDERSTOOD:
+  - The dataset is clean (few or no nulls/duplicates)
+  - There is some class imbalance — certain mental health conditions have
+    more samples than others
+  - The imbalance ratio and entropy give us a concrete number for how
+    skewed the distribution is
+  - This means we MUST use strategies like class_weight='balanced' and
+    stratified train-test splits when training models
+
+
+================================================================================
+ STEP 4: DESCRIPTIVE STATISTICS FOR ALL NUMERIC COLUMNS
+================================================================================
+
+WHAT WE DID:
+  For every numeric column, calculated: mean, standard deviation, variance,
+  min, max, percentiles (1st through 99th), range, IQR, coefficient of
+  variation, skewness, and kurtosis. Also plotted histograms with KDE curves
+  for representative features (sentiment score, fear word frequency, etc.).
+
+WHY WE DID IT:
+  This gives a "fingerprint" of each feature — is it spread out or concentrated?
+  Is it skewed left or right? Are there extreme values? Understanding feature
+  shapes helps decide:
+    - Whether to normalize/scale features
+    - Whether transformations are needed (log transform for skewed features)
+    - Which features have enough variation to be useful
+
+WHAT WE UNDERSTOOD:
+  - Features have very different scales (some range 0-1, others 0-1000+)
+    → normalization/scaling is essential before models like SVM or LogReg
+  - Some features are highly skewed → tree-based models handle this better
+    than linear models
+  - Features with very low variance might not contribute much to classification
+  - The coefficient of variation shows which features are relatively more
+    spread out compared to their mean
+
+
+================================================================================
+ STEP 5: NORMALITY TESTS (D'AGOSTINO K²)
+================================================================================
+
+WHAT WE DID:
+  Ran the D'Agostino K² test on each numeric column (sampling 3000 rows per
+  column for efficiency). This test checks whether data follows a normal
+  (bell-curve) distribution. If p > 0.05, the feature is approximately normal;
+  if p ≤ 0.05, it is not. Visualized using a bar chart of -log10(p-value).
+
+WHY WE DID IT:
+  Some statistical tests we use later (like ANOVA) assume the data is normally
+  distributed. If most features are NOT normal, we also need non-parametric
+  tests (like Kruskal-Wallis) that do not assume normality.
+
+WHAT WE UNDERSTOOD:
+  - MOST features are NON-NORMAL (they fail the normality test at p < 0.05)
+  - This is why we use BOTH parametric (ANOVA) and non-parametric
+    (Kruskal-Wallis) tests in later steps
+  - Tree-based models (Random Forest, XGBoost) are well-suited because they
+    do not assume any distribution shape
+  - Linear models may need feature transformations to work optimally
+
+
+================================================================================
+ STEP 6: OUTLIER ANALYSIS (IQR & Z-SCORE)
+================================================================================
+
+WHAT WE DID:
+  Detected outliers in every numeric column using two methods:
+    - IQR method: Values below Q1 - 1.5×IQR or above Q3 + 1.5×IQR
+    - Z-score method: Values more than 3 standard deviations from the mean
+  Also showed box plots for selected features to visually spot outliers.
+
+WHY WE DID IT:
+  Outliers can mislead statistical tests and skew ML model training. By knowing
+  how many outliers each feature has, we can decide whether to:
+    - Remove them (if they are errors)
+    - Cap/clip them via winsorization (reduce extreme influence)
+    - Leave them (if they are genuine and informative)
+
+WHAT WE UNDERSTOOD:
+  - Some features have a small percentage of outliers, others have more
+  - The IQR and Z-score methods sometimes disagree — IQR is more conservative
+  - For the ML pipeline, we decided to use IQR-based capping (winsorization)
+    on interpretable features to reduce extreme value influence while keeping
+    the data shape intact
+  - Embedding features were left untouched as they are already normalized
+
+
+================================================================================
+ STEP 7: PER-CLASS FEATURE STATISTICS (BASIC)
+================================================================================
+
+WHAT WE DID:
+  For each mental health class separately, computed statistics (mean, median,
+  std, min, max, percentiles, IQR) for every interpretable feature. Created
+  a z-scored heatmap where rows are features, columns are classes, and colors
+  show which features run high or low for each class.
+
+WHY WE DID IT:
+  Different mental health conditions express differently in text. Depression
+  might have higher sadness word frequency but lower positive emotion ratio
+  compared to normal. This per-class breakdown reveals those patterns.
+
+WHAT WE UNDERSTOOD:
+  - The heatmap clearly shows which features "light up" differently across
+    classes — red/blue patches indicate features that are notably high or
+    low for specific conditions
+  - These pattern differences are what the ML model will learn to exploit
+  - Features with uniform colors across all classes (no variation) are less
+    useful for classification
+
+
+================================================================================
+ STEP 8: PER-CLASS FEATURE STATISTICS (ENHANCED WITH TOP 10 ANNOTATED HEATMAP)
+================================================================================
+
+WHAT WE DID:
+  Same per-class statistics enhanced with:
+    1. Full heatmap of all features (broad overview)
+    2. Table of raw class means (actual numbers)
+    3. Annotated heatmap zoomed into the top 10 most discriminative features
+       with exact numeric values on each cell
+
+WHY WE DID IT:
+  The previous step gave a broad picture. This zooms in on the features that
+  matter most. By showing actual numbers, we can precisely compare how sentiment,
+  fear, or sadness frequency changes from depression to normal to anxiety.
+
+WHAT WE UNDERSTOOD:
+  - Confirmed which features clearly separate classes with exact numeric evidence
+  - For example, sentiment score differences between depression and normal are
+    visible and quantifiable
+  - This builds confidence that these features carry genuine discriminative signal
+
+
+================================================================================
+ STEP 9: FEATURE × CLASS PROFILE (LINE PLOT)
+================================================================================
+
+WHAT WE DID:
+  Computed global and class-wise statistics for each feature, then plotted a
+  line chart showing how the mean of the top 10 discriminative features changes
+  across classes.
+
+WHY WE DID IT:
+  The heatmap shows magnitude (color intensity), but a line plot shows TRENDS —
+  you can see features that move together or in opposite directions. This helps
+  identify:
+    - Features that increase with severity (negative emotion goes up)
+    - Features that decrease with severity (positive emotion drops)
+    - Features that spike for only one specific condition
+
+WHAT WE UNDERSTOOD:
+  - Features with steep slopes across classes are the most useful predictors
+  - Flat lines mean the feature does not help distinguish classes
+  - Some features show opposite trends (e.g., positive vs negative emotion),
+    suggesting they capture complementary information
+  - Divergent patterns across classes validate that text-based features genuinely
+    reflect different mental health presentations
+
+
+================================================================================
+ STEP 10: PEARSON CORRELATION MATRIX & HIGHLY CORRELATED PAIRS
+================================================================================
+
+WHAT WE DID:
+  Computed the Pearson correlation (linear relationship strength) between every
+  pair of interpretable features. Visualized as a heatmap. Extracted all feature
+  pairs with |r| ≥ 0.75 (highly correlated).
+
+WHY WE DID IT:
+  If two features are very highly correlated (e.g., r = 0.95), they carry almost
+  the same information. Including both in a model leads to:
+    - Redundancy — wasted computation
+    - Multicollinearity — can destabilize logistic regression and similar models
+  By finding these pairs, we know which features to safely drop later.
+
+WHAT WE UNDERSTOOD:
+  - Several feature pairs are highly correlated (carrying redundant information)
+  - These pairs are candidates for dropping one member during feature selection
+  - The correlation heatmap also reveals blocks of related features (e.g., all
+    emotion-related features tend to correlate with each other)
+  - This directly informed our ML pipeline where we drop features with |r| ≥ 0.90
+
+
+================================================================================
+ STEP 11: SPEARMAN CORRELATION MATRIX
+================================================================================
+
+WHAT WE DID:
+  Computed Spearman rank correlation between all interpretable features and
+  visualized as a heatmap.
+
+WHY WE DID IT:
+  Pearson only captures LINEAR relationships. Spearman captures MONOTONIC
+  relationships (one goes up when the other goes up, even if not in a straight
+  line) because it works on ranks, not raw values. By comparing both:
+    - High Spearman + low Pearson → non-linear relationship
+    - Both high → strong linear relationship
+
+WHAT WE UNDERSTOOD:
+  - Since most features are non-normal (from Step 5), Spearman is actually
+    the more reliable correlation measure for our data
+  - The patterns are broadly similar to Pearson but with some differences,
+    confirming non-linear relationships exist between certain feature pairs
+  - This strengthens our decision to use tree-based models that naturally
+    handle non-linear relationships
+
+
+================================================================================
+ STEP 12: KRUSKAL-WALLIS H-TEST (FEATURE VS TARGET)
+================================================================================
+
+WHAT WE DID:
+  Ran the Kruskal-Wallis H-test on each feature against the target class. This
+  non-parametric test checks: "Does this feature have significantly different
+  distributions across the mental health classes?" If p < 0.05, the feature IS
+  statistically significant. Visualized -log10(p-value) for the top 20 features.
+
+WHY WE DID IT:
+  Since most features are non-normal (Step 5), we cannot rely solely on
+  parametric tests. Kruskal-Wallis is the safe, non-parametric alternative —
+  it works on ranks and makes no distribution assumptions.
+
+WHAT WE UNDERSTOOD:
+  - Features with the highest H-statistic (lowest p-value) have distributions
+    that differ the most across mental health classes
+  - These are our strongest candidates for the ML model
+  - The ranked list gives us the first of three independent feature importance
+    rankings (statistical perspective)
+  - Almost all interpretable features show significant differences, but the
+    ORDER of importance matters — the top ones are much more powerful
+
+
+================================================================================
+ STEP 13: ONE-WAY ANOVA F-TEST (FEATURE VS TARGET)
+================================================================================
+
+WHAT WE DID:
+  Ran one-way ANOVA F-test on each feature against the target. This is the
+  parametric version — it assumes normality and checks whether feature means
+  differ significantly across classes. Same visualization as Kruskal-Wallis.
+
+WHY WE DID IT:
+  We run BOTH ANOVA and Kruskal-Wallis to cross-validate findings. If both
+  agree a feature is significant, we have more confidence. If they disagree,
+  we trust Kruskal-Wallis more (our data is non-normal).
+
+WHAT WE UNDERSTOOD:
+  - ANOVA and Kruskal-Wallis rankings are largely consistent — the same
+    features show up at the top of both lists
+  - This cross-validation increases our confidence in the feature rankings
+  - The agreement means our findings are robust, not artifacts of a single
+    statistical method
+
+
+================================================================================
+ STEP 14: ETA-SQUARED EFFECT SIZES
+================================================================================
+
+WHAT WE DID:
+  Computed Eta-squared (η²) for each feature — the proportion of total variance
+  explained by class membership. Classified each as:
+    - Large (η² ≥ 0.14): Class explains a big chunk of variation
+    - Medium (0.06–0.14): Moderate class influence
+    - Small (0.01–0.06): Weak but detectable
+    - Negligible (< 0.01): Class barely matters
+  Bar chart of the top 20 features.
+
+WHY WE DID IT:
+  Statistical significance (p-value) tells us "is there a difference?" but NOT
+  "how big is the difference?" A tiny p-value can occur just because of large
+  sample size. EFFECT SIZE tells us the practical importance — how much of the
+  variance class membership actually explains.
+
+WHAT WE UNDERSTOOD:
+  - Several features have LARGE effect sizes — class membership genuinely
+    explains a significant portion of their variance
+  - Features with large η² are the strongest predictors — they change
+    meaningfully across mental health conditions, not just statistically
+  - Features with negligible η² can be deprioritized even if their p-values
+    are technically significant
+  - This distinction between statistical and practical significance is crucial
+    for building a focused, efficient model
+
+
+================================================================================
+ STEP 15: PAIRWISE CLASS COMPARISONS (MANN-WHITNEY U + COHEN'S D)
+================================================================================
+
+WHAT WE DID:
+  For the top 15 discriminative features, compared EVERY pair of classes
+  (e.g., depression vs anxiety, depression vs normal, anxiety vs normal)
+  using:
+    - Mann-Whitney U test — are two classes significantly different?
+    - Cohen's d — how large is the difference?
+      (large ≥ 0.8, medium ≥ 0.5, small ≥ 0.2)
+
+WHY WE DID IT:
+  Previous tests (ANOVA, KW) tell us "this feature differs across ALL classes"
+  but not WHICH specific pairs differ. This step answers: "Is depression vs
+  anxiety harder to distinguish than depression vs normal?"
+
+WHAT WE UNDERSTOOD:
+  - Some class pairs have many features with large Cohen's d — these are
+    EASY to separate (the model should classify them correctly)
+  - Other pairs have mostly small/negligible effects — these are the
+    "confusable" conditions the model will struggle with
+  - This predicts where the ML model will make mistakes and helps us
+    understand the confusion matrix results later
+  - It also highlights which conditions present similarly in text features
+
+
+================================================================================
+ STEP 16: FISHER DISCRIMINANT RATIO
+================================================================================
+
+WHAT WE DID:
+  Computed the Fisher Discriminant Ratio for each feature:
+    Fisher Ratio = Between-class Mean Squares / Within-class Mean Squares
+  Higher ratio means better class separation. Showed top 20 in a bar chart.
+
+WHY WE DID IT:
+  This is another way to rank features by their ability to separate classes.
+  Think of it like this: if class means are far apart (high between-class
+  variance) and points within each class are tightly grouped (low within-class
+  variance), the Fisher ratio is high → easy to classify.
+
+WHAT WE UNDERSTOOD:
+  - Features with the highest Fisher ratio give the clearest signal for
+    distinguishing mental health conditions
+  - The ranking is consistent with Kruskal-Wallis and ANOVA (cross-validation
+    of the same finding from different mathematical angles)
+  - This ratio directly relates to how a Linear Discriminant Analysis (LDA)
+    classifier would weight features
+
+
+================================================================================
+ STEP 17: RANDOM FOREST FEATURE IMPORTANCE (ML-BASED)
+================================================================================
+
+WHAT WE DID:
+  Trained a Random Forest classifier (150 trees) on 40,000 sampled rows using
+  interpretable features. Extracted feature importances based on Mean Decrease
+  in Impurity (MDI) — how much each feature helps the tree splits reduce
+  classification error. Showed top 20 in a bar chart.
+
+WHY WE DID IT:
+  Statistical tests (KW, ANOVA) measure features one at a time. But a Random
+  Forest considers FEATURE INTERACTIONS — a feature might be weak alone but
+  powerful in combination with others. This gives an ML perspective on
+  importance, complementing the statistical tests.
+
+WHAT WE UNDERSTOOD:
+  - This gives us the second independent feature ranking (ML perspective)
+  - Features that rank high in BOTH statistical tests AND Random Forest are
+    the most reliable candidates for our final model
+  - Features that only appear in one method might be less robust
+  - The Random Forest also gives us a realistic preview of how tree-based
+    models will use these features during actual training
+
+
+================================================================================
+ STEP 18: MUTUAL INFORMATION (FEATURE VS TARGET)
+================================================================================
+
+WHAT WE DID:
+  Computed Mutual Information (MI) between each feature and the target class.
+  MI measures how much knowing a feature's value reduces uncertainty about
+  which class a sample belongs to. Higher MI = more informative. Top 20 bar
+  chart.
+
+WHY WE DID IT:
+  MI captures BOTH linear and non-linear relationships (unlike Pearson which
+  only sees linear). It is also model-independent (unlike Random Forest). This
+  gives us a third independent ranking.
+
+WHAT WE UNDERSTOOD:
+  - We now have THREE independent feature rankings:
+    1. Kruskal-Wallis (statistical)
+    2. Random Forest MDI (ML-based)
+    3. Mutual Information (information-theoretic)
+  - By having three different methods, we can build a CONSENSUS ranking
+    that is more robust than any single method
+  - Features that appear at the top of all three lists are our most
+    confident picks for the classification model
+
+
+================================================================================
+ STEP 19: PCA ON EMBEDDING FEATURES
+================================================================================
+
+WHAT WE DID:
+  Ran Principal Component Analysis (PCA) on the embedding columns (emb_0,
+  emb_1, ...). Analyzed the top 10 principal components with:
+    - Scree plot (variance per component)
+    - Cumulative variance plot (how many components needed for 80%/90%)
+
+WHY WE DID IT:
+  Embedding features are high-dimensional (50+ columns). PCA tells us whether
+  all those dimensions are actually needed. If 5 components capture 90% of
+  the variance, most embedding columns are redundant.
+
+WHAT WE UNDERSTOOD:
+  - The number of components needed for 80%/90% variance tells us the
+    true "complexity" of the embedding space
+  - If variance is spread across many components, embeddings capture diverse
+    information → worth keeping
+  - If just a few components dominate, we could reduce dimensionality
+    significantly without losing much signal
+  - This informed our decision on whether to use raw embeddings or
+    PCA-reduced embeddings in the ML model
+
+
+================================================================================
+ STEP 20: PCA ON INTERPRETABLE FEATURES (SCALED)
+================================================================================
+
+WHAT WE DID:
+  Ran PCA on interpretable features (linguistic + topic) after StandardScaler
+  normalization. Analyzed up to 15 components with scree/cumulative plots and
+  extracted top 5 loadings per component (which features contribute most).
+
+WHY WE DID IT:
+  Unlike embeddings (learned representations), interpretable features are
+  manually engineered. PCA reveals:
+    - How much redundancy exists among handcrafted features
+    - Which features group together (capturing similar information)
+    - How many independent "dimensions of variation" our features represent
+
+WHAT WE UNDERSTOOD:
+  - The top loadings reveal the underlying structure — for example, PC1 might
+    be "emotional valence" (positive vs negative emotion features), PC2 might
+    be "linguistic complexity"
+  - The number of components for 80%/90% variance shows how many truly
+    independent signals our features carry
+  - Features loading heavily on the same component are somewhat redundant
+    (consistent with correlation analysis findings from Steps 10-11)
+
+
+================================================================================
+ STEP 21: TOPIC FEATURE ANALYSIS PER CLASS
+================================================================================
+
+WHAT WE DID:
+  Analyzed topic distribution columns (topic_0, topic_1, ...) by computing:
+    - Class-wise means for each topic
+    - Dominant topic per class
+    - Z-scored heatmap showing which classes lean toward which topics
+
+WHY WE DID IT:
+  Topics represent the "themes" people talk about. Different mental health
+  conditions often focus on different topics (anxiety → future worries,
+  depression → loss/sadness, etc.). This reveals thematic patterns.
+
+WHAT WE UNDERSTOOD:
+  - Each class has a characteristic topic signature — a "fingerprint" of
+    what themes dominate
+  - The dominant topic per class confirms clinical intuitions about how
+    different conditions manifest in language
+  - The z-scored heatmap makes it easy to see outlier topic-class
+    associations — topics that are unusually high or low for a given class
+
+
+================================================================================
+ STEP 22: LANGUAGE DISTRIBUTION BY CLASS
+================================================================================
+
+WHAT WE DID:
+  Checked how languages are distributed overall and within each class using a
+  stacked bar chart of language proportions per class.
+
+WHY WE DID IT:
+  If certain classes have a different mix of languages, it could introduce
+  BIAS — the model might learn to associate language with a condition rather
+  than actual mental health signals. This check ensures fairness.
+
+WHAT WE UNDERSTOOD:
+  - Checked whether language distribution is similar across all classes
+  - Any major imbalance would mean we need to control for language as a
+    confounding variable in our model
+  - This is an important data quality/fairness check that is often overlooked
+
+
+================================================================================
+ STEP 23: CATEGORICAL COLUMNS ANALYSIS
+================================================================================
+
+WHAT WE DID:
+  For any categorical columns (like language), counted unique values, showed
+  top 20 categories, and cross-tabulated with the target class.
+
+WHY WE DID IT:
+  Categorical columns might hold useful information or might need special
+  encoding (one-hot, label encoding) before feeding into an ML model. The
+  cross-tabulation shows associations between categories and conditions.
+
+WHAT WE UNDERSTOOD:
+  - Got a clear picture of the non-numeric data and its relationship with
+    the target
+  - Important context for deciding how to handle categorical features in
+    the ML pipeline (we ultimately focus on numeric features since
+    categorical columns have limited variety)
+
+
+================================================================================
+ STEP 24: CLASS CENTROID DISTANCES (EUCLIDEAN & COSINE)
+================================================================================
+
+WHAT WE DID:
+  Scaled all interpretable features, computed the centroid (average point) of
+  each class in feature space, then measured:
+    - Euclidean distance (straight-line) between every pair of centroids
+    - Cosine distance (angular) between every pair of centroids
+  Showed a heatmap and identified most similar/most distant class pairs.
+
+WHY WE DID IT:
+  This tells us which conditions are MOST SIMILAR (small distance = hard to
+  distinguish) and MOST DIFFERENT (large distance = easy to separate).
+
+WHAT WE UNDERSTOOD:
+  - The most similar class pair → where the model will make the most mistakes
+    (predicted by the confusion matrix)
+  - The most distant class pair → easiest classification boundary
+  - Some conditions "cluster" together in feature space, meaning they share
+    similar text patterns
+  - This gives a high-level geometric view of class separability that
+    complements the feature-by-feature analysis from earlier steps
+
+
+================================================================================
+ STEP 25: FEATURE VARIANCE DECOMPOSITION (BETWEEN VS WITHIN CLASS)
+================================================================================
+
+WHAT WE DID:
+  For each feature, split total variance into:
+    - Between-class variance: how much class means differ (useful signal)
+    - Within-class variance: how much points vary within each class (noise)
+  Showed top 20 features by between-class variance percentage.
+
+WHY WE DID IT:
+  A feature with high between-class % means most of its variation comes from
+  DIFFERENCES between conditions — exactly what we want for classification.
+  Low between-class % means the feature is mostly noise.
+
+WHAT WE UNDERSTOOD:
+  - This is one of the most direct measures of feature usefulness
+  - Features at the top of this chart truly differ across conditions,
+    not just randomly vary
+  - Features with low between-class % can be deprioritized — they
+    contribute noise rather than signal
+  - Consistent with eta-squared results from Step 14 (same concept,
+    different computation)
+
+
+================================================================================
+ STEP 26: PERCENTILE PROFILES PER CLASS (LINGUISTIC FEATURES)
+================================================================================
+
+WHAT WE DID:
+  For key linguistic features, computed percentiles (5th, 10th, 25th, 50th,
+  75th, 90th, 95th) separately for each class. Plotted percentile curves —
+  one line per class showing the full value range.
+
+WHY WE DID IT:
+  Means and medians can be misleading — two classes might have the same mean
+  but very different shapes (one narrow, one wide). Percentile profiles show
+  the FULL distribution story.
+
+WHAT WE UNDERSTOOD:
+  - If percentile curves for different classes are well-separated (do not
+    overlap), that feature is great for classification
+  - If curves overlap heavily, the feature cannot reliably separate those
+    classes
+  - Class differences at the TAILS (5th/95th percentiles) suggest extreme
+    cases are more distinguishable than moderate ones
+  - This granular view validates the earlier statistical tests with visual
+    evidence of exactly WHERE and HOW the distributions differ
+
+
+================================================================================
+ STEP 27: FEATURE RANKING CONSENSUS (COMBINING ALL METHODS)
+================================================================================
+
+WHAT WE DID:
+  Combined rankings from THREE independent methods by averaging their ranks:
+    1. Kruskal-Wallis rank (from Step 12)
+    2. Random Forest MDI rank (from Step 17)
+    3. Mutual Information rank (from Step 18)
+  Lowest average rank = overall #1 feature. Showed top 20 in a bar chart.
+
+WHY WE DID IT:
+  No single ranking method is perfect:
+    - Statistical tests can be inflated by large sample sizes
+    - Random Forest can be biased toward certain feature types
+    - Mutual Information has its own estimation quirks
+  By taking the CONSENSUS (average rank), we get a robust, reliable ranking
+  that is not overly dependent on any single method.
+
+WHAT WE UNDERSTOOD:
+  - The TOP 10 CONSENSUS FEATURES are our final, most confident answer to
+    "which features should we use for the mental health classification model?"
+  - These features consistently rank high across all three methods — they
+    are genuinely the most discriminative
+  - This consensus directly fed into the ML pipeline (ML_Model_Training.ipynb)
+    where we use these features for training
+  - Features that ranked high in only one method were deprioritized, reducing
+    the risk of overfitting to method-specific biases
+
+
+================================================================================
+ STEP 28: MASTER SUMMARY REPORT
+================================================================================
+
+WHAT WE DID:
+  Compiled EVERYTHING from all 27 previous analyses into one structured JSON
+  report: dataset overview, class distribution, statistical test results,
+  feature importance rankings, correlation findings, class separability,
+  PCA insights, and per-class profiles.
+
+WHY WE DID IT:
+  This is the final deliverable of the entire EDA. Having everything in one
+  summary makes it easy to:
+    - Reference key findings without re-running cells
+    - Feed findings to downstream processes (model training, reporting)
+    - Compare with future analyses if the dataset changes
+
+WHAT WE UNDERSTOOD:
+  This entire EDA answered the main question: "What does our mental health
+  dataset look like, and which features are most useful for classifying
+  mental health conditions?" The master summary is that answer in one place.
+
+
+================================================================================
+ KEY TAKEAWAYS FROM THE ENTIRE EDA
+================================================================================
+
+1. DATA QUALITY:
+   - The dataset is clean with few or no missing values or duplicates
+   - Some class imbalance exists → need class weighting and stratified splits
+
+2. FEATURE DISTRIBUTIONS:
+   - Most features are non-normal → tree-based models are ideal
+   - Some features have outliers → IQR-based capping is recommended
+   - Features have different scales → StandardScaler needed for SVM/LogReg
+
+3. FEATURE IMPORTANCE (CONSENSUS TOP FEATURES):
+   - Three methods (Kruskal-Wallis, Random Forest, Mutual Information) agree
+     on the most important features
+   - Sentiment scores, emotion ratios, word frequencies, and self-reference
+     density are among the top predictors
+   - Topic features also contribute meaningful signal
+
+4. CORRELATIONS & REDUNDANCY:
+   - Several feature pairs are highly correlated (|r| ≥ 0.75)
+   - Dropping one from each pair above |r| ≥ 0.90 reduces redundancy
+     without losing information
+   - PCA confirms that features have some overlap (fewer independent
+     dimensions than total features)
+
+5. CLASS SEPARABILITY:
+   - Some class pairs are well-separated (high centroid distances, large
+     effect sizes) → easy to classify
+   - Other pairs are close together → the model will confuse these
+   - Effect sizes confirm PRACTICAL significance beyond just p-values
+
+6. RECOMMENDATIONS FOR ML TRAINING:
+   - Use tree-based models (Random Forest, XGBoost, LightGBM) as primary
+     candidates — they handle non-normal data, mixed feature types, and
+     class imbalance naturally
+   - Include Logistic Regression as a simple baseline
+   - Apply StandardScaler for distance-based models (SVM)
+   - Use stratified train-test split and class weighting
+   - Start with consensus top features, then try all numeric features
+   - These recommendations were directly implemented in ML_Model_Training.ipynb
+
+================================================================================
+ END OF EDA DOCUMENTATION
+================================================================================
