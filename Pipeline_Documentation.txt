@@ -1,0 +1,213 @@
+====================================================
+   AUTOMATED ML PIPELINE — STEP-BY-STEP REFERENCE
+====================================================
+
+
+STEP 0 — IMPORT LIBRARIES
+  What we do : Load all Python packages needed for the pipeline.
+  Algorithms : pandas, numpy, scipy, scikit-learn, xgboost,
+               lightgbm, optuna, matplotlib, seaborn, joblib
+
+
+STEP 1 — CONFIGURATION
+  What we do : Set the CSV file path, random seed, and output folder.
+               Create a central state dictionary to track every decision.
+  Algorithms : None (user settings only)
+
+
+STEP 2 — DATA LOADING
+  What we do : Read the CSV file into memory and print shape, memory
+               usage, data types, and the first 5 rows.
+  Algorithms : pandas read_csv
+
+
+STEP 3 — COLUMN OVERVIEW
+  What we do : Print every column's name, dtype, null count, unique
+               count, and a sample value so you can pick the target.
+  Algorithms : None (information display only)
+
+
+STEP 4 — TARGET COLUMN SELECTION
+  What we do : You manually type the target column name.
+               Pipeline auto-detects Classification vs Regression.
+               (Text or <=20 unique values = Classification, else Regression)
+  Algorithms : None (user input + rule-based detection)
+
+
+STEP 5 — DATA PROFILING & QUALITY AUDIT
+  What we do : Run 5 automatic checks and flag bad columns.
+    5.1  Null check       — flag columns with >50% missing values
+    5.2  Duplicate check  — remove duplicates if >30% of rows
+    5.3  Constant check   — flag columns with only 1 unique value
+    5.4  ID-like check    — flag columns where every value is unique
+    5.5  High-cardinality — flag text columns with >50% unique values
+  Algorithms : pandas value_counts, nunique, duplicated
+
+
+STEP 6 — AUTO-CLEAN
+  What we do : Drop all flagged columns. Fill remaining missing values.
+    - Numeric nulls  → filled with Median
+    - Text nulls     → filled with Mode
+    - Target nulls   → rows dropped
+  Algorithms : pandas fillna (median / mode), drop
+
+
+STEP 7 — TARGET ANALYSIS & CLASS BALANCE
+  What we do : Analyze the target column distribution.
+    Classification → count per class, imbalance ratio, bar + pie chart,
+                     encode labels to numbers.
+    Regression     → mean, std, skewness, kurtosis, histogram, Q-Q plot.
+    Decide balancing strategy:
+      Ratio <=1.5 → Balanced (no action)
+      Ratio 1.5-3 → Moderate (class_weight="balanced")
+      Ratio >3    → Heavy (class_weight="balanced")
+  Algorithms : LabelEncoder, scipy probplot
+
+
+STEP 8 — OUTLIER HANDLING (SMOOTHING)
+  What we do : Detect outliers using IQR method and smooth them.
+               No data points are ever removed.
+               For each column, test 4 strategies and pick the one
+               that gives the lowest skewness.
+  Algorithms :
+    1. Winsorize (clip to IQR bounds)
+    2. Log1p Transform — log(1+x)
+    3. Square Root Transform — sqrt(x)
+    4. Yeo-Johnson Power Transform
+  Selection   : Pick strategy with lowest absolute skewness per column
+
+
+STEP 9 — FEATURE ENCODING
+  What we do : Convert all text/category columns to numbers.
+    Binary (2 values)       → Label Encoding (0/1)
+    Low cardinality (3-10)  → One-Hot Encoding (dummy columns)
+    Medium+ (11+ values)    → Frequency Encoding (proportion)
+    Booleans                → cast to 1/0
+  Algorithms : LabelEncoder, pandas get_dummies, value_counts (frequency)
+
+
+STEP 10 — EDA & VISUALIZATION
+  What we do : Explore the data with statistics and charts.
+    10.1 Distribution  → skewness, kurtosis, histograms
+    10.2 Correlation   → Pearson matrix, flag pairs with |r| >= 0.85, heatmap
+    10.3 Stat tests    → Classification: Kruskal-Wallis H-test per feature
+                         Regression: Spearman rank correlation per feature
+    10.4 Box plots     → top 8 features grouped by class
+  Algorithms : Pearson correlation, Kruskal-Wallis H-test, Spearman correlation
+
+
+STEP 11 — FEATURE SELECTION (CONSENSUS)
+  What we do : Rank features using 3 methods, average the ranks,
+               and drop the bottom 30%.
+    11.1 Drop one from each highly-correlated pair (|r| >= 0.85)
+    11.2 Random Forest Importance (MDI) — rank by impurity reduction
+    11.3 Mutual Information — rank by statistical dependency
+    11.4 Stat test ranking — Kruskal-Wallis H or |Spearman rho|
+    11.5 Average the 3 ranks → consensus score
+    11.6 Drop bottom 30% (Tier 4) features
+  Algorithms : RandomForest (100 trees), mutual_info_classif / mutual_info_regression,
+               Kruskal-Wallis, Spearman
+
+
+STEP 12 — PREPROCESSING FINALIZATION
+  What we do : Convert to numpy, replace NaN/Inf with 0.
+               Split 80% Train / 20% Test (stratified for classification).
+               Auto-select and apply scaler:
+                 >30% columns had outliers → RobustScaler
+                 Otherwise                 → StandardScaler
+  Algorithms : train_test_split, StratifiedKFold, RobustScaler, StandardScaler
+
+
+STEP 13 — MODEL SHORTLISTING
+  What we do : Pick which models to try based on data size and features.
+
+  Classification candidates:
+    Always  : Random Forest, LightGBM, Extra Trees, Gradient Boosting
+    If <=100K rows              : + XGBoost
+    If <100 features & <=50K    : + Logistic Regression
+    If <50 features & <=20K     : + SVM (RBF)
+    If <=50K rows               : + KNN
+
+  Regression candidates:
+    Always  : Random Forest, LightGBM, Extra Trees, Gradient Boosting
+    If <=100K rows              : + XGBoost
+    If <100 features            : + Ridge Regression
+    If <50 features & <=20K     : + SVR
+    If <=50K rows               : + KNN Regressor
+
+  Algorithms : All listed above (conditional selection logic)
+
+
+STEP 14 — MODEL TRAINING & CROSS-VALIDATION
+  What we do : Train every shortlisted model with 5-fold cross-validation.
+               Rank all models by average score. Plot a bar chart comparison.
+    Scoring:
+      Binary classification   → F1
+      Multi-class             → F1 weighted
+      Regression              → Negative MSE
+  Algorithms : StratifiedKFold (5 folds), cross_val_score, all shortlisted models
+
+
+STEP 15 — TOP-2 MODEL SELECTION
+  What we do : Pick the top 2 models for hyperparameter tuning.
+               Analyze the score gap between #1 and #2.
+                 Gap <0.005   → Very close, tuning may flip the result
+                 Gap 0.005-0.02 → #2 could close the gap
+                 Gap >0.02    → #1 has a clear lead
+  Algorithms : None (ranking + gap analysis)
+
+
+STEP 16 — HYPERPARAMETER TUNING (OPTUNA)
+  What we do : Tune the top 2 models using Bayesian optimization.
+               Settings: 15 trials, 3-minute timeout, 3-fold CV.
+  Algorithm  : Optuna TPE (Tree-structured Parzen Estimator) sampler
+
+  Parameters tuned per model:
+    LightGBM         → n_estimators, max_depth, learning_rate, num_leaves,
+                        subsample, colsample_bytree, min_child_samples,
+                        reg_alpha, reg_lambda
+    XGBoost          → n_estimators, max_depth, learning_rate, subsample,
+                        colsample_bytree, min_child_weight, gamma,
+                        reg_alpha, reg_lambda
+    Random Forest /
+    Extra Trees      → n_estimators, max_depth, min_samples_split,
+                        min_samples_leaf, max_features
+    Gradient Boosting→ n_estimators, max_depth, learning_rate, subsample,
+                        min_samples_split, min_samples_leaf
+    Logistic Reg     → C, penalty (l1/l2)
+    SVM              → C, kernel (rbf/poly), gamma
+    KNN              → n_neighbors, weights, metric
+
+
+STEP 17 — FINAL EVALUATION ON TEST SET
+  What we do : Train the best tuned model on full training data.
+               Evaluate on the test set (never seen by the model).
+
+    Classification metrics : Accuracy, F1, Precision, Recall,
+                             Classification Report, Confusion Matrix
+    Regression metrics     : MSE, RMSE, MAE, R-squared
+
+    Plots:
+      Classification → Confusion Matrix + Normalized Confusion Matrix
+      Regression     → Actual vs Predicted scatter + Residual histogram
+
+  Also evaluates the runner-up model for comparison.
+  Algorithms : classification_report, confusion_matrix, mean_squared_error, r2_score
+
+
+STEP 18 — SAVE ARTIFACTS
+  What we do : Save everything to a unique folder so nothing is overwritten.
+               Folder: pipeline_output/{ModelName}_{ddmmyyyy}_{hhmmss}/
+
+    Files saved:
+      best_model.joblib    → trained model
+      scaler.joblib        → feature scaler
+      label_encoder.joblib → label mapping (classification only)
+      pipeline_state.json  → full decision log from every step
+      model_metadata.json  → model name, parameters, metrics, feature list
+  Algorithms : joblib dump, json dump
+
+
+====================================================
+                       END
+====================================================
