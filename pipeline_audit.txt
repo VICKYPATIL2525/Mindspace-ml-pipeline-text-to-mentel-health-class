@@ -1,0 +1,669 @@
+================================================================================
+FULL PIPELINE AUDIT — full-final-pipeline.ipynb
+================================================================================
+Date: 2026-03-12
+Dataset: mental_health_synthetic_dataset_with_normal.csv (50,000 rows, 66 cols)
+Target: "profile" (7-class classification)
+Classes: Anxiety, Bipolar_Mania, Depression, Normal, Phobia, Stress, Suicidal_Tendency
+
+Status: Cells 0-30 executed. Cell 30 still running (stuck at Gradient Boosting).
+        Cells 32-38 not yet executed.
+
+
+================================================================================
+CELL-BY-CELL AUDIT
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+CELL 0 (markdown) — Pipeline Overview
+────────────────────────────────────────────────────────────────────────────────
+WHAT IT DOES: Describes the 18-step pipeline plan.
+VERDICT: GOOD — Clear documentation of the approach.
+DOES IT FLOW FROM PREVIOUS?: N/A (first cell)
+
+────────────────────────────────────────────────────────────────────────────────
+CELL 2 (code) — Step 0: Import Libraries
+────────────────────────────────────────────────────────────────────────────────
+WHAT IT DOES: Imports all dependencies (pandas, sklearn, xgboost, lightgbm, optuna, etc.)
+OUTPUT: "All libraries imported successfully!"
+VERDICT: WORKS 
+
+────────────────────────────────────────────────────────────────────────────────
+CELL 4 (code) — Step 1: Configuration
+────────────────────────────────────────────────────────────────────────────────
+WHAT IT DOES: Sets FILE_PATH, RANDOM_SEED=42, OUTPUT_DIR, creates PIPELINE_STATE dict.
+OUTPUT: Shows config values.
+VERDICT: GOOD — Clean and simple.
+DOES IT FLOW FROM PREVIOUS?: Yes — just sets variables for later.
+
+────────────────────────────────────────────────────────────────────────────────
+CELL 6 (code) — Step 2: Data Loading
+────────────────────────────────────────────────────────────────────────────────
+WHAT IT DOES: Loads CSV, shows shape (50000x66), dtypes (61 float, 3 object, 2 int).
+OUTPUT: 50,000 rows, 66 columns, 32.20 MB. Shows first 5 rows.
+VERDICT: GOOD — Standard data loading with proper checks.
+DOES IT FLOW FROM PREVIOUS?: Yes — uses FILE_PATH from config.
+
+────────────────────────────────────────────────────────────────────────────────
+CELL 8 (code) — Step 3: Column Overview
+────────────────────────────────────────────────────────────────────────────────
+WHAT IT DOES: Lists all 66 columns with dtype, null count, unique count, sample value.
+OUTPUT: Full column table. No nulls found. 50,000 unique values in most float columns.
+VERDICT: GOOD — Gives user the info needed to pick the target column.
+DOES IT FLOW FROM PREVIOUS?: Yes — uses df from Step 2.
+
+────────────────────────────────────────────────────────────────────────────────
+CELL 10 (code) — Step 4: Target Column Selection
+────────────────────────────────────────────────────────────────────────────────
+WHAT IT DOES: Sets TARGET_COLUMN='profile', auto-detects task type.
+OUTPUT: 7 classes, dtype=object, CLASSIFICATION auto-detected.
+VERDICT: GOOD — Auto-detection logic works correctly here (object dtype = classification).
+DOES IT FLOW FROM PREVIOUS?: Yes — uses df from Step 2, validates column exists.
+
+BRANCHING LOGIC CHECK:
+  - If dtype == 'object' OR nunique <= 20 → classification  ✓ (correct for this data)
+  - Else → regression
+
+ISSUE #2 — Auto-detection threshold is fragile
+  A numeric column with 15 unique values (e.g. ratings 1-15) would be wrongly
+  classified as classification. The threshold of 20 is arbitrary.
+  SUGGESTION: Let the user confirm/override the auto-detected task type.
+
+────────────────────────────────────────────────────────────────────────────────
+CELL 12 (code) — Step 5: Data Profiling & Quality Audit
+────────────────────────────────────────────────────────────────────────────────
+WHAT IT DOES: Checks for nulls, duplicates, constant cols, ID-like cols,
+  high-cardinality categoricals, and target leakage.
+OUTPUT:
+  - No nulls
+  - No duplicates
+  - No constant columns
+  - No ID-like columns
+  - No high-cardinality categoricals
+  - FOUND 1 leakage column: "target" (1-to-1 mapping with "profile")
+VERDICT: EXCELLENT — Caught the leakage column perfectly.
+DOES IT FLOW FROM PREVIOUS?: Yes — uses df, TARGET_COLUMN from previous cells.
+
+BRANCHING LOGIC CHECK:
+  - Nulls >50% → flag for removal                     ✓ (not triggered, correct)
+  - Duplicates >30% → remove                           ✓ (not triggered, correct)
+  - Constant columns → flag                            ✓ (not triggered, correct)
+  - ID-like (all unique, non-float) → flag             ✓ (not triggered, correct)
+  - High cardinality (>50% unique in object cols) → flag  ✓ (not triggered, correct)
+  - Leakage (1-to-1 with target) → flag               ✓ (TRIGGERED, caught "target" column!)
+
+  This is the BEST CELL in the pipeline — it correctly identified the "target"
+  column as a leakage risk. Without this, the model would cheat.
+
+ISSUE #3 — Leakage detection is limited
+  The leakage check only catches PERFECT 1-to-1 mappings and binary indicators.
+  It does NOT catch:
+    - Near-perfect correlation (e.g. 99% correlation with target)
+    - Columns derived from target (e.g. "target_encoded_score")
+    - Multi-column leakage (combination of 2+ cols = target)
+  SUGGESTION: Add a correlation-based leakage check (|correlation| > 0.95 with
+  encoded target) as an additional detection method.
+
+────────────────────────────────────────────────────────────────────────────────
+CELL 14 (code) — Step 6: Auto-Clean
+────────────────────────────────────────────────────────────────────────────────
+WHAT IT DOES: Drops flagged columns, imputes nulls (median for numeric, mode for categorical).
+OUTPUT: Dropped "target" column. No imputation needed. Shape: 50000x65.
+VERDICT: GOOD — Correctly drops only flagged columns, skips target.
+DOES IT FLOW FROM PREVIOUS?: Yes — uses columns_to_drop from Step 5.
+
+BRANCHING LOGIC CHECK:
+  - If column flagged AND not target → drop           ✓ (dropped "target" feature col)
+  - If target has nulls → drop those rows             ✓ (not triggered)
+  - If numeric null → fill with median                ✓ (not triggered)
+  - If categorical null → fill with mode              ✓ (not triggered)
+
+ISSUE #4 — No index reset after potential row removal
+  If duplicates were removed (Step 5.2) or target nulls were dropped, the
+  DataFrame index has gaps. This WILL cause misalignment later when numpy
+  arrays (y) are indexed by position but DataFrame (X_df) still has the
+  original index. In THIS run no rows were removed so it's fine, but for
+  other datasets it WILL break.
+  FIX: Add df = df.reset_index(drop=True) after any row removal.
+
+────────────────────────────────────────────────────────────────────────────────
+CELL 16 (code) — Step 7: Target Analysis & Class Balance
+────────────────────────────────────────────────────────────────────────────────
+WHAT IT DOES: Analyzes class distribution, decides on balance strategy, encodes target.
+OUTPUT:
+  - Depression: 22.56%, Anxiety: 18.05%, Stress: 18.00%
+  - Bipolar_Mania: 13.64%, Normal: 9.95%, Suicidal_Tendency: 8.92%, Phobia: 8.88%
+  - Imbalance ratio: 2.54:1 → MODERATELY IMBALANCED
+  - Strategy: class_weight="balanced"
+  - Label encoding applied (0-6)
+VERDICT: GOOD — Correctly identifies imbalance and picks appropriate strategy.
+DOES IT FLOW FROM PREVIOUS?: Yes — uses df, TARGET_COLUMN, TASK_TYPE.
+
+BRANCHING LOGIC CHECK:
+  - Imbalance <= 1.5 → no action                      (not triggered)
+  - Imbalance 1.5-3.0 → class_weight="balanced"       ✓ (TRIGGERED at 2.54:1)
+  - Imbalance > 3.0 → class_weight + warning          (not triggered)
+  - Regression → skip all balance logic               (not triggered)
+
+ISSUE #5 — f1_weighted may not be the best metric for this imbalance
+  With 7 classes and moderate imbalance, f1_weighted is dominated by the
+  majority class (Depression at 22.56%). The pipeline later uses f1_weighted
+  as the CV scoring metric, which means a model can score well just by
+  being good at predicting Depression/Anxiety/Stress.
+  SUGGESTION: Use f1_macro instead — it gives equal weight to all classes,
+  which better reflects performance on minority classes like Phobia (8.88%).
+
+ISSUE #6 — class_weight="balanced" not passed to XGBoost/LightGBM correctly
+  For XGBoost: class_weight parameter doesn't exist. The pipeline doesn't set
+  scale_pos_weight or sample_weight for XGBoost, so it trains UNWEIGHTED.
+  For LightGBM: is_unbalance=True is set, which is correct.
+  For Gradient Boosting: class_weight is NOT passed (GradientBoostingClassifier
+  does NOT support class_weight parameter in sklearn). It trains UNWEIGHTED.
+  FIX: For XGBoost, compute sample weights manually. For GradientBoosting,
+  use sample_weight parameter in fit().
+
+────────────────────────────────────────────────────────────────────────────────
+CELL 18 (code) — Step 8: Outlier Handling (Smoothing)
+────────────────────────────────────────────────────────────────────────────────
+WHAT IT DOES: For each numeric column with outliers, tests 4 strategies
+  (winsorize, log1p, sqrt, yeo-johnson) and picks the one with lowest skew.
+OUTPUT: Applied yeo-johnson to most columns (it won almost every time).
+  E.g. total_word_count: skew 1.155 → 0.019, fear_word_frequency: skew 2.067 → 0.246
+VERDICT: WORKS but has a CRITICAL DATA LEAKAGE issue.
+DOES IT FLOW FROM PREVIOUS?: Yes — uses X_df from Step 7.
+
+BRANCHING LOGIC CHECK:
+  - Binary/one-hot columns (0/1 only) → skip          ✓ (correct)
+  - No outliers → skip                                ✓ (correct)
+  - For each column, test all applicable strategies    ✓ (correct)
+  - Non-negative data → test log1p and sqrt too        ✓ (correct)
+  - Pick strategy with lowest |skew| → apply           ✓ (correct)
+
+*** CRITICAL ISSUE #7 — DATA LEAKAGE: Outlier handling before train/test split ***
+  The PowerTransformer (yeo-johnson) is FIT on the ENTIRE dataset (50,000 rows)
+  including what will become the test set. The IQR bounds for winsorizing are
+  also computed on the full dataset. This means:
+    - Test data statistics influence the transformation parameters
+    - The model indirectly "sees" test data patterns during training
+    - Reported test metrics will be OPTIMISTICALLY BIASED
+  This is the #1 most damaging issue in the entire pipeline.
+  FIX: Move outlier handling AFTER the train/test split (Step 12), or
+  fit transformations only on training data and apply to both train and test.
+
+ISSUE #8 — Yeo-Johnson fitted objects not saved
+  The PowerTransformer objects are created inside the loop and discarded.
+  At inference time on new data, you cannot reproduce the same transformation
+  because you don't have the fitted lambda parameters.
+  FIX: Store each fitted PowerTransformer in a dict and save with artifacts.
+
+ISSUE #9 — Strategy always minimizes skewness, but skewness != best for models
+  Tree-based models (RF, XGBoost, LightGBM) do NOT care about skewness —
+  they handle any distribution natively. Aggressively normalizing distributions
+  with yeo-johnson can actually DESTROY useful signal patterns.
+  The output shows yeo-johnson won for almost every column, meaning most
+  features were transformed with a complex power transform unnecessarily.
+  SUGGESTION: Only apply outlier smoothing for linear models, or make it
+  optional. For tree models, raw features or simple winsorizing is better.
+
+────────────────────────────────────────────────────────────────────────────────
+CELL 20 (code) — Step 9: Feature Type Handling
+────────────────────────────────────────────────────────────────────────────────
+WHAT IT DOES: Encodes categorical features, converts booleans.
+OUTPUT: Only 1 categorical column: "language" (3 categories → one-hot, 2 new columns).
+  Final shape: 50000 x 65.
+VERDICT: WORKS but has data leakage and a design issue.
+DOES IT FLOW FROM PREVIOUS?: Yes — uses X_df from Step 8.
+
+BRANCHING LOGIC CHECK:
+  - Binary categorical (2 unique) → label encode      (not triggered)
+  - Low cardinality (3-10) → one-hot encode            ✓ (TRIGGERED for "language")
+  - High cardinality (11+) → frequency encode          (not triggered)
+  - Boolean → convert to int                           (not triggered)
+  - Any remaining non-numeric → drop with warning      (not triggered)
+
+*** ISSUE #10 — DATA LEAKAGE: One-hot encoding on full dataset ***
+  get_dummies() is called on ALL 50,000 rows. The set of categories seen
+  comes from the full dataset. If a category only exists in the test set,
+  the one-hot encoder still creates a column for it, leaking information.
+  (For this specific dataset with "language" having only 3 categories, the
+  impact is minimal, but the principle is wrong.)
+  FIX: Fit encoding on training data only after the split.
+
+ISSUE #11 — drop_first=True hurts tree-based models
+  One-hot encoding with drop_first=True drops the reference category
+  (e.g., "english" is dropped, keeping only "hindi" and "marathi" columns).
+  This is needed for linear models to avoid multicollinearity, but for
+  tree-based models (which dominate this pipeline), it LOSES information.
+  A tree model cannot easily represent "if language == english" with just
+  "not hindi AND not marathi".
+  SUGGESTION: Use drop_first=False for tree-based models.
+
+────────────────────────────────────────────────────────────────────────────────
+CELL 22 (code) — Step 10: EDA & Visualization
+────────────────────────────────────────────────────────────────────────────────
+WHAT IT DOES: Distribution analysis, correlation analysis, Kruskal-Wallis tests,
+  Levene's test, box plots by class.
+OUTPUT:
+  - language_marathi most skewed (1.503) — expected for a one-hot column
+  - 1 highly correlated pair: total_word_count <-> unique_word_count (r=0.885)
+  - 27/65 features statistically significant (p < 0.05) — Kruskal-Wallis
+  - 27/65 features have unequal variance across classes — Levene's test
+  - Top features: self_reference_density, overall_sentiment_score, future_focus_ratio
+VERDICT: GOOD EDA — thorough statistical analysis.
+DOES IT FLOW FROM PREVIOUS?: Yes — uses X_df, y, df, TARGET_COLUMN.
+
+BRANCHING LOGIC CHECK:
+  - If classification → Kruskal-Wallis test            ✓ (TRIGGERED)
+  - If regression → Spearman correlation               (not triggered)
+  - If classification → Levene's test                  ✓ (TRIGGERED)
+  - If n_features <= 40 → full heatmap                 (not triggered, 65 > 40)
+  - If n_features > 40 → top correlations only         ✓ (TRIGGERED)
+  - If classification → box plots by class             ✓ (TRIGGERED)
+
+ISSUE #12 — EDA runs on transformed data, not raw data
+  By Step 10, the features have already been yeo-johnson transformed (Step 8).
+  The skewness, distributions, and correlation values shown are for the
+  TRANSFORMED data, not the original. This means:
+    - The correlation heatmap doesn't show true relationships
+    - The distribution plots don't show real data patterns
+    - The statistical tests are run on transformed values
+  This makes the EDA less useful for UNDERSTANDING the data.
+  SUGGESTION: Run EDA on raw data BEFORE any transformations, or show both.
+
+ISSUE #13 — 38 of 65 features are NOT significant
+  Only 27/65 features pass the Kruskal-Wallis test (p < 0.05). That means
+  38 features have NO statistically significant relationship with the target.
+  The pipeline correctly uses this info in feature selection (Step 11), but
+  it doesn't warn the user loudly enough that over half the features are noise.
+
+────────────────────────────────────────────────────────────────────────────────
+CELL 24 (code) — Step 11: Feature Selection (Multi-Method Consensus)
+────────────────────────────────────────────────────────────────────────────────
+WHAT IT DOES:
+  1. Remove highly correlated features (|r| >= 0.85)
+  2. VIF-based removal (VIF > 10)
+  3. Random Forest importance
+  4. Mutual Information scores
+  5. Consensus ranking (average rank from RF + MI + Kruskal-Wallis + Levene's)
+  6. Drop bottom 30%
+OUTPUT:
+  - Correlation: Removed unique_word_count (correlated with total_word_count, r=0.885)
+  - VIF: Removed future_focus_ratio (VIF=48.4), topic_3 (VIF=18.6),
+    overall_sentiment_score (VIF=15.8)
+  - Consensus: Kept 42/61 features (top 70%)
+  - Final feature count: 42
+VERDICT: MOSTLY GOOD but has data leakage and questionable VIF removals.
+DOES IT FLOW FROM PREVIOUS?: Yes — uses X_df, y, stat_test_results, high_corr_pairs.
+
+BRANCHING LOGIC CHECK:
+  - If correlated pair exists → remove one (keep the one more related to target) ✓
+  - VIF > 10 → iteratively remove worst                                          ✓
+  - Classification → 4-method consensus (RF + MI + Kruskal-Wallis + Levene's)    ✓
+  - Regression → 3-method consensus (RF + MI + Spearman)                          (not triggered)
+  - Drop bottom 30% by consensus rank                                             ✓
+
+*** ISSUE #14 — DATA LEAKAGE: Feature selection on full dataset ***
+  Random Forest importance and Mutual Information are computed on ALL 50,000
+  rows. The RF model trained for importance scoring sees what will become
+  test data. The MI scores also include test data. Features selected this
+  way are optimized for the full dataset, not just training data.
+  FIX: Do feature selection AFTER the train/test split, using only training data.
+
+*** ISSUE #15 — VIF removed important features! ***
+  VIF removed 3 features, including:
+    - future_focus_ratio (VIF=48.4) — was ranked #3 by Kruskal-Wallis (H=20530)
+    - overall_sentiment_score (VIF=15.8) — was ranked #2 by Kruskal-Wallis (H=24571)
+  These were among the TOP predictive features! VIF measures multicollinearity
+  (redundancy between FEATURES), not importance. Removing a highly predictive
+  feature just because it's correlated with other features is a BAD trade-off.
+
+  What happened: overall_sentiment_score is likely a combination of
+  positive_emotion_ratio and negative_emotion_ratio (hence high VIF), but it
+  captures target-relevant signal that neither component captures alone.
+
+  SUGGESTION: Either skip VIF entirely (tree models handle multicollinearity
+  natively) or only remove VIF-flagged features if they rank BELOW median
+  in the importance ranking. Never remove a top-10 important feature for VIF.
+
+ISSUE #16 — Bottom 30% removal is too aggressive
+  The pipeline drops 19 features (bottom 30%) regardless of their absolute
+  importance. Some of those features might still be useful.
+  With 61 features → 42 kept. But some of the 19 dropped could have moderate
+  predictive value.
+  SUGGESTION: Use a threshold on absolute score (e.g., MI > 0.01) instead
+  of a fixed percentage.
+
+────────────────────────────────────────────────────────────────────────────────
+CELL 26 (code) — Step 12: Preprocessing Finalization
+────────────────────────────────────────────────────────────────────────────────
+WHAT IT DOES: Train/test split (80/20, stratified), scaler selection and application.
+OUTPUT:
+  - 40,000 train, 10,000 test
+  - Chose RobustScaler (because 63 outlier columns > 30% of 42 features)
+  - Train/test stats look reasonable
+VERDICT: MOSTLY GOOD but has a scaler logic bug and the split is TOO LATE.
+DOES IT FLOW FROM PREVIOUS?: Yes — uses X_df, y, feature_names.
+
+BRANCHING LOGIC CHECK:
+  - If classification → stratified split              ✓ (TRIGGERED)
+  - If regression → regular split                     (not triggered)
+  - If >30% columns had outliers → RobustScaler       ✓ (TRIGGERED)
+  - If <=30% outlier columns → StandardScaler          (not triggered)
+
+*** ISSUE #17 — Train/test split happens at Step 12, but transformations happened at Steps 8-11 ***
+  This is the ROOT CAUSE of all the data leakage issues. The split should
+  happen IMMEDIATELY after Step 6 (auto-clean), BEFORE any transformations.
+  Everything from Step 8 onwards should be fit on TRAINING data only.
+
+  CORRECT ORDER SHOULD BE:
+    Step 6: Auto-clean
+    Step 7: Target analysis (can use full data for analysis, but encode after split)
+    NEW: Train/test split HERE
+    Step 8: Outlier handling (fit on train, apply to both)
+    Step 9: Encoding (fit on train, apply to both)
+    Step 10: EDA (on training data only, or on raw data before split for exploration)
+    Step 11: Feature selection (on training data only)
+    Step 12: Scaling (on training data only)
+
+ISSUE #18 — Scaler selection logic is wrong
+  The code checks: n_outlier_cols (63) > total_numeric (42) * 0.3 = 12.6
+  But n_outlier_cols = 63 counts outlier columns from BEFORE feature selection
+  removed 19 features. It's comparing apples to oranges. 63 > 12.6 is true
+  but the numbers don't match the current feature set.
+  FIX: Count outlier columns among the CURRENT features only.
+
+────────────────────────────────────────────────────────────────────────────────
+CELL 28 (code) — Step 13: Model Shortlisting
+────────────────────────────────────────────────────────────────────────────────
+WHAT IT DOES: Dynamically selects candidate models based on dataset properties.
+OUTPUT: 7 models selected:
+  - Random Forest, LightGBM, Extra Trees (always included)
+  - XGBoost (40K samples manageable), Gradient Boosting (always)
+  - Logistic Regression (42 features < 100, 40K < 50K)
+  - KNN (40K < 50K)
+  - SVM skipped (42 features < 50 BUT 40K > 20K threshold)
+VERDICT: EXCELLENT — Smart conditional model selection.
+DOES IT FLOW FROM PREVIOUS?: Yes — uses X_train_scaled shape, TASK_TYPE, BALANCE_STRATEGY.
+
+BRANCHING LOGIC CHECK:
+  - Always include: RF, LightGBM, Extra Trees, Gradient Boosting  ✓
+  - n_samples <= 100K → include XGBoost                            ✓ (40K, included)
+  - n_feats < 100 AND n_samples <= 50K → Logistic Regression      ✓ (42, 40K, included)
+  - n_feats < 50 AND n_samples <= 20K → SVM                       ✓ (42 < 50 but 40K > 20K, SKIPPED)
+  - n_samples <= 50K → KNN                                        ✓ (40K, included)
+
+  The SVM exclusion is CORRECT — SVM would be too slow on 40K samples.
+  Good decision logic here.
+
+ISSUE #19 — class_weight not passed to all models that support it
+  The code sets use_cw=True (because BALANCE_STRATEGY='class_weight'), but:
+  - XGBoost: No class_weight parameter set! XGBClassifier doesn't accept
+    class_weight directly. Need to use scale_pos_weight (binary) or
+    sample_weight in fit().
+  - Gradient Boosting: No class_weight passed (it doesn't support it as a
+    constructor param). Need sample_weight in fit().
+  - KNN: KNeighborsClassifier does NOT support class_weight at all.
+
+  So only RF, Extra Trees, LightGBM, and Logistic Regression actually handle
+  the class imbalance. XGBoost, Gradient Boosting, and KNN train UNWEIGHTED.
+
+────────────────────────────────────────────────────────────────────────────────
+CELL 30 (code) — Step 14: Model Training & Cross-Validation
+────────────────────────────────────────────────────────────────────────────────
+WHAT IT DOES: 5-fold stratified CV on all 7 candidates, rank by f1_weighted.
+OUTPUT (partial — cell still running):
+  - Random Forest: 0.8476 +/- 0.0039 (55.7s)
+  - LightGBM: 0.8809 +/- 0.0030 (18.6s)
+  - Extra Trees: 0.8351 +/- 0.0059 (35.1s)
+  - XGBoost: 0.8806 +/- 0.0030 (19.8s)
+  - Gradient Boosting: STILL RUNNING...
+  - Logistic Regression: NOT YET
+  - KNN: NOT YET
+VERDICT: GOOD structure — proper CV with ranking.
+DOES IT FLOW FROM PREVIOUS?: Yes — uses candidates dict, X_train_scaled, y_train.
+
+BRANCHING LOGIC CHECK:
+  - If classification → StratifiedKFold, f1_weighted    ✓
+  - If regression → KFold, neg_mean_squared_error       (not triggered)
+  - If multiclass → f1_weighted                         ✓ (7 classes > 2)
+  - If binary → f1                                      (not triggered)
+  - If model fails → catch exception, score=-999        ✓ (good safety net)
+
+ISSUE #20 — Gradient Boosting is extremely slow
+  RF took 55.7s, LightGBM 18.6s, XGBoost 19.8s, but Gradient Boosting
+  appears to be hanging (no output yet). GradientBoostingClassifier with
+  n_estimators=200 and n_jobs=1 (it doesn't support n_jobs) on 40K samples
+  with 5-fold CV = 200 * 5 sequential tree fits. This can take 10-20 minutes.
+  SUGGESTION: Either reduce n_estimators for GB to 100, or add a per-model
+  timeout to prevent a single slow model from blocking the pipeline.
+
+────────────────────────────────────────────────────────────────────────────────
+CELL 32 (code) — Step 15: Top-K Model Selection [NOT YET RUN]
+────────────────────────────────────────────────────────────────────────────────
+WHAT IT DOES: Select top 2 models from ranking for hyperparameter tuning.
+VERDICT: GOOD — Uses ranking from Step 14 to pick top 2.
+DOES IT FLOW FROM PREVIOUS?: Yes — uses `ranked` list from Step 14.
+
+BRANCHING LOGIC CHECK:
+  - Picks top min(2, len(ranked)) models               ✓
+  - If top 2 are within 0.005 → "very close"           ✓
+  - If top 2 are within 0.02 → "could close gap"       ✓
+  - If top 2 differ by >0.02 → "clear lead"            ✓
+
+  Based on partial results, LightGBM (0.8809) and XGBoost (0.8806) will
+  likely be the top 2 — they're within 0.0003 of each other!
+
+────────────────────────────────────────────────────────────────────────────────
+CELL 34 (code) — Step 16: Hyperparameter Tuning (Optuna) [NOT YET RUN]
+────────────────────────────────────────────────────────────────────────────────
+WHAT IT DOES: Bayesian optimization with Optuna for top 2 models.
+  15 trials, 180s timeout, 3-fold CV.
+VERDICT: GOOD structure — proper Optuna usage with timeout safety.
+DOES IT FLOW FROM PREVIOUS?: Yes — uses top_models from Step 15.
+
+BRANCHING LOGIC CHECK:
+  - For each top model → look up in get_optuna_model() → tune           ✓
+  - If LightGBM → tune 9 hyperparameters                                ✓
+  - If XGBoost → tune 9 hyperparameters                                 ✓
+  - If RF → tune 5 hyperparameters                                      ✓
+  - If model not recognized → fallback to Decision Tree                 ✓
+  - If trials hit timeout → stop early and report                       ✓
+  - Compare tuned score vs default → report improvement                 ✓
+
+ISSUE #21 — Tuning uses 3-fold CV but training used 5-fold CV
+  The tuning CV (3-fold) produces different score estimates than the training
+  CV (5-fold). This means the tuned "best_score" is not directly comparable
+  to the training "mean_score". A model might appear to improve from tuning
+  when it's actually just a different CV split producing a different estimate.
+  SUGGESTION: Use the same number of folds (5) for both, or at least note
+  this discrepancy in the output.
+
+ISSUE #22 — No early stopping for boosting models during tuning
+  XGBoost and LightGBM support early stopping, which would:
+    1. Prevent overfitting from too many n_estimators
+    2. Speed up each trial significantly
+  The current setup trains all n_estimators (up to 500) even if the model
+  converged at 150.
+
+────────────────────────────────────────────────────────────────────────────────
+CELL 36 (code) — Step 17: Final Evaluation [NOT YET RUN]
+────────────────────────────────────────────────────────────────────────────────
+WHAT IT DOES: Train best model on full training set, evaluate on test set.
+  Shows accuracy, F1, precision, recall, classification report, confusion matrix.
+VERDICT: GOOD — comprehensive evaluation.
+DOES IT FLOW FROM PREVIOUS?: Yes — uses best_tuned_name, tuning_results.
+
+BRANCHING LOGIC CHECK:
+  - If classification → accuracy, F1, precision, recall, confusion matrix   ✓
+  - If regression → MSE, RMSE, MAE, R2, scatter plot, residuals           ✓
+  - If runner-up exists → also evaluate runner-up                          ✓
+
+ISSUE #23 — _FixedTrial hack is fragile
+  The _FixedTrial class mimics Optuna's trial interface to reconstruct models.
+  If get_optuna_model() is ever updated to use new suggest methods, this
+  silently breaks. Better to save the actual model from the best trial.
+
+ISSUE #24 — Test metrics are inflated due to data leakage
+  Because of issues #7, #10, #14 (transformations on full data before split),
+  the test set is NOT truly unseen. The test metrics will be HIGHER than what
+  you'd see on genuinely new data. Don't trust these numbers for deployment
+  decisions.
+
+────────────────────────────────────────────────────────────────────────────────
+CELL 38 (code) — Step 18: Save Artifacts [NOT YET RUN]
+────────────────────────────────────────────────────────────────────────────────
+WHAT IT DOES: Saves model, scaler, label encoder, pipeline state JSON, metadata.
+VERDICT: GOOD artifact saving — timestamped folders prevent overwrites.
+DOES IT FLOW FROM PREVIOUS?: Yes — uses final_model, scaler, le, PIPELINE_STATE.
+
+ISSUE #25 — Missing artifacts for inference reproducibility
+  The saved artifacts are:
+    ✓ best_model.joblib
+    ✓ scaler.joblib
+    ✓ label_encoder.joblib
+    ✓ pipeline_state.json
+    ✓ model_metadata.json
+
+  MISSING (needed to process new data identically):
+    ✗ Outlier transformation objects (PowerTransformer per column)
+    ✗ Which outlier strategy was applied to which column
+    ✗ Frequency encoding maps (if any were used)
+    ✗ One-hot encoding categories (to handle unseen categories)
+    ✗ Feature list AFTER selection (what columns to expect)
+    ✗ Column order mapping
+
+  Without these, you CANNOT process new data through the same pipeline.
+  The saved model expects 42 features in a specific order with specific
+  transformations, but only the scaler is saved.
+
+
+================================================================================
+SUMMARY: WHAT THE PIPELINE DOES WELL
+================================================================================
+
+1. TARGET LEAKAGE DETECTION (Step 5)
+   Caught the "target" column as leakage — this is excellent and would have
+   completely ruined the model without detection.
+
+2. CONDITIONAL MODEL SELECTION (Step 13)
+   Smart dynamic selection based on dataset size/dimensionality. Correctly
+   skipped SVM (too slow for 40K samples).
+
+3. MULTI-METHOD CONSENSUS FEATURE SELECTION (Step 11)
+   Using 4 independent methods (RF, MI, Kruskal-Wallis, Levene's) and averaging
+   ranks is a robust approach that doesn't over-rely on any single method.
+
+4. ADAPTIVE OUTLIER HANDLING STRATEGY (Step 8)
+   Testing multiple strategies per column and picking the best one is smart.
+   (Though the execution has leakage issues, the IDEA is good.)
+
+5. CLASS IMBALANCE HANDLING (Step 7)
+   Correctly identifies moderate imbalance and decides on class_weight strategy.
+
+6. COMPREHENSIVE EDA (Step 10)
+   Multiple statistical tests, correlation analysis, distribution analysis,
+   and visualizations provide good data understanding.
+
+7. OPTUNA TUNING WITH TIMEOUT (Step 16)
+   Bayesian optimization with a hard timeout prevents the tuning from running
+   forever. Good pragmatic choice.
+
+
+================================================================================
+SUMMARY: WHAT THE PIPELINE DOES WRONG
+================================================================================
+
+*** CRITICAL ISSUES (will produce wrong/inflated results) ***
+
+1. DATA LEAKAGE — Train/test split too late (Steps 8, 9, 10, 11)
+   Outlier handling, encoding, EDA, and feature selection all happen BEFORE
+   the 80/20 split. Every transformation is fitted on the full dataset.
+   IMPACT: Test metrics are optimistically biased. Model may underperform
+   on truly new data by 2-5% or more.
+
+2. VIF REMOVED TOP PREDICTIVE FEATURES (Step 11)
+   overall_sentiment_score (#2 by importance) and future_focus_ratio (#3)
+   were removed because of high VIF. These features carried strong signal.
+   IMPACT: Model loses access to some of its best predictors.
+
+3. INFERENCE PIPELINE INCOMPLETE (Step 18)
+   Only model + scaler + encoder are saved. All outlier transforms, encoding
+   maps, and feature selection decisions are lost.
+   IMPACT: Cannot deploy this model on new data.
+
+*** HIGH ISSUES (will affect model quality) ***
+
+4. CLASS WEIGHTS NOT APPLIED TO ALL MODELS (Steps 13/14)
+   XGBoost, Gradient Boosting, and KNN don't get class weighting despite
+   the pipeline deciding it's needed for this imbalanced dataset.
+   IMPACT: 3 of 7 models are disadvantaged for minority classes.
+
+5. F1_WEIGHTED METRIC FAVORS MAJORITY CLASS (Step 14)
+   With 7 classes and Depression at 22.56%, f1_weighted doesn't properly
+   penalize poor performance on Phobia (8.88%) or Suicidal_Tendency (8.92%).
+   IMPACT: Best model might be poor at predicting the most critical classes.
+
+6. YEO-JOHNSON OVER-APPLIED (Step 8)
+   Tree-based models (which dominate this pipeline) don't need normalized
+   distributions. Aggressive yeo-johnson transforms can destroy useful
+   signal patterns that trees would naturally exploit.
+
+*** MEDIUM ISSUES ***
+
+7. EDA runs on transformed data, not raw data (Step 10)
+8. No index reset after row removal — fragile for other datasets (Step 6)
+9. Scaler selection uses wrong feature count (Step 12)
+10. Tuning CV folds (3) differ from training CV folds (5) (Step 16)
+11. drop_first=True in one-hot encoding hurts tree models (Step 9)
+12. Bottom 30% feature removal is too aggressive (Step 11)
+
+*** LOW ISSUES ***
+
+13. warnings.filterwarnings('ignore') hides useful warnings (Step 0)
+14. No early stopping for boosting models during tuning (Step 16)
+15. _FixedTrial hack for model reconstruction is fragile (Step 17)
+16. Task type auto-detection threshold (nunique <= 20) is arbitrary (Step 4)
+17. No datetime or text feature handling (Step 9)
+18. Gradient Boosting is very slow without n_jobs support (Step 14)
+
+
+================================================================================
+FLOW LOGIC VERIFICATION — Does each cell branch based on previous output?
+================================================================================
+
+Step 0-3:   LINEAR (no branching needed)                              ✓ CORRECT
+Step 4:     BRANCHES on dtype/nunique → classification vs regression   ✓ CORRECT
+Step 5:     BRANCHES on null%, duplicates, cardinality, leakage       ✓ CORRECT
+Step 6:     BRANCHES on what Step 5 flagged                           ✓ CORRECT
+Step 7:     BRANCHES on TASK_TYPE and imbalance ratio                 ✓ CORRECT
+Step 8:     BRANCHES on per-column outlier presence and data type     ✓ CORRECT
+Step 9:     BRANCHES on categorical cardinality (2/3-10/11+)          ✓ CORRECT
+Step 10:    BRANCHES on TASK_TYPE for test selection                  ✓ CORRECT
+Step 11:    BRANCHES on TASK_TYPE for ranking method (4 vs 3 methods) ✓ CORRECT
+Step 12:    BRANCHES on TASK_TYPE for stratification, outlier count
+            for scaler selection                                      ✓ CORRECT
+Step 13:    BRANCHES on n_samples, n_features, TASK_TYPE              ✓ CORRECT
+Step 14:    BRANCHES on TASK_TYPE for CV strategy and scoring         ✓ CORRECT
+Step 15:    Uses RANKING from Step 14 to pick top 2                   ✓ CORRECT
+Step 16:    Uses TOP 2 from Step 15, BRANCHES by model name for
+            hyperparameter spaces                                     ✓ CORRECT
+Step 17:    Uses BEST from Step 16, BRANCHES on TASK_TYPE for metrics ✓ CORRECT
+Step 18:    Uses all previous outputs                                 ✓ CORRECT
+
+VERDICT: The FLOW LOGIC is well-designed. Each cell correctly branches
+based on previous outputs. The pipeline adapts to data characteristics
+at every step. The FUNDAMENTAL ISSUE is not the branching logic — it's
+the ORDER of operations (split should come before transforms).
+
+
+================================================================================
+RECOMMENDED FIX ORDER (if you want to fix this pipeline)
+================================================================================
+
+1. FIRST: Move train/test split to right after Step 6 (auto-clean)
+2. SECOND: Make Steps 8-11 fit only on training data
+3. THIRD: Save all transformation artifacts in Step 18
+4. FOURTH: Fix class_weight for XGBoost/GB/KNN
+5. FIFTH: Consider removing VIF step or protecting important features
+6. SIXTH: Switch to f1_macro scoring
+7. SEVENTH: Make yeo-johnson optional / only for linear models
