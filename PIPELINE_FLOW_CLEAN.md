@@ -14,7 +14,7 @@ flowchart LR
 
     subgraph P2[" "]
         direction TB
-        S2(["📂 Step 2\nLoad CSV\n50K × 66"])
+        S2(["📂 Step 2\nLoad CSV\n50,000 × 66"])
         S3(["🔍 Step 3\nColumn Overview"])
         S4(["🎯 Step 4\nTarget = profile"])
         S2 --> S3 --> S4
@@ -28,7 +28,7 @@ flowchart LR
     end
 
     %% ── Phase 2: Split (the hard boundary) ──
-    S7{{"✂️ Step 7\nTrain/Test Split\n40K / 10K\nStratified"}}
+    S7{{"✂️ Step 7\nTrain/Test Split\n40,000 / 10,000\nStratified"}}
 
     %% ── Phase 3: Train-only transforms ──
     subgraph P4["🔧 Transform (fit on train)"]
@@ -39,12 +39,12 @@ flowchart LR
     end
 
     subgraph P5["📊 Analyze"]
-        S10(["Step 10 · EDA\nDistributions · Correlations\nKruskal-Wallis · Levene's"])
+        S10(["Step 10 · Exploratory Data Analysis\nDistributions · Correlations\nKruskal-Wallis · Levene's"])
     end
 
     subgraph P6["🎯 Select & Scale"]
         direction TB
-        S11(["Step 11 · Feature Selection\nCorr → VIF → RF+MI+Stats\n65 → 43 features"])
+        S11(["Step 11 · Feature Selection\nCorrelation → VIF → Random Forest + Mutual Information + Statistical Tests\n65 → 43 features"])
         S12(["Step 12 · RobustScaler"])
         S11 --> S12
     end
@@ -53,14 +53,14 @@ flowchart LR
     subgraph P7["🏋️ Train & Compare"]
         direction TB
         S13(["Step 13 · Shortlist\n8 candidate models"])
-        S14(["Step 14 · 5-Fold CV\nf1_macro · parallel"])
+        S14(["Step 14 · 5-Fold Cross-Validation\nF1 Macro · parallel"])
         S15(["Step 15 · Top-2\nselection"])
         S13 --> S14 --> S15
     end
 
     %% ── Phase 5: Tuning ──
     subgraph P8["🎛️ Tune"]
-        S16(["Step 16 · Optuna TPE\n15 trials · 3 min\n5-fold CV"])
+        S16(["Step 16 · Optuna Tree-structured Parzen Estimator\n15 trials · 3 min\n5-Fold Cross-Validation"])
     end
 
     %% ── Phase 6: Evaluate & Save ──
@@ -74,12 +74,12 @@ flowchart LR
     %% ── Connections ──
     P1 --> P2 --> P3
     P3 --> S7
-    S7 -->|"Train 40K"| P4
+    S7 -->|"Train 40,000 rows"| P4
     P4 --> P5 --> P6 --> P7 --> P8
     P8 --> P9
 
     %% ── Test set bypass (no leakage) ──
-    S7 -.->|"Test 10K held out"| S17
+    S7 -.->|"Test 10,000 rows held out"| S17
 
     %% ── Styles ──
     style P1 fill:#1a1a2e,stroke:#e94560,color:#fff
@@ -100,12 +100,12 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    RAW["Raw CSV\n50K × 66"]
-    CLEAN["Cleaned\n50K × 65"]
+    RAW["Raw CSV\n50,000 × 66"]
+    CLEAN["Cleaned\n50,000 × 65"]
     SPLIT["Train/Test Split"]
-    TRAINSET["Train Set\n40K rows"]
-    TESTSET["Test Set\n10K rows"]
-    FIT["Fit Transforms\n(outlier · encode · scale · select)"]
+    TRAINSET["Train Set\n40,000 rows"]
+    TESTSET["Test Set\n10,000 rows"]
+    FIT["Fit Transforms\n(Outlier Smoothing · Encoding · Scaling · Feature Selection)"]
     APPLY_TRAIN["Apply → Train"]
     APPLY_TEST["Apply → Test"]
     MODEL["Train Models"]
@@ -132,8 +132,8 @@ flowchart LR
 flowchart TD
     START["65 Features\n(after encoding & EDA)"]
     CORR["Correlation Filter\nRemove one from pairs |r| ≥ 0.85"]
-    VIF["VIF Iteration\nRemove VIF > 10\n(top-25% importance protected)"]
-    RF["Random Forest\nMDI Importance Ranking"]
+    VIF["Variance Inflation Factor (VIF) Iteration\nRemove VIF > 10\n(top-25% importance protected)"]
+    RF["Random Forest\nMean Decrease Impurity (MDI) Importance Ranking"]
     MI["Mutual Information\nScores on train data"]
     STAT["Statistical Tests\nKruskal-Wallis H + Levene's W"]
     CONSENSUS["Consensus Ranking\nAverage ranks from RF + MI + Stats"]
@@ -167,12 +167,12 @@ flowchart TD
     XGB["XGBoost"]
     HGB["HistGradientBoosting"]
     LR["Logistic Regression"]
-    SVM["SVM (RBF)"]
-    KNN["KNN"]
-    CV["5-Fold Stratified CV\nf1_macro scoring"]
+    SVM["Support Vector Machine (RBF)"]
+    KNN["K-Nearest Neighbors"]
+    CV["5-Fold Stratified Cross-Validation\nF1 Macro Scoring"]
     RANK["Rank by CV Score"]
     TOP2["Top 2 Selected"]
-    OPTUNA["Optuna TPE Tuning\n15 trials · 3 min timeout · 5-fold CV"]
+    OPTUNA["Optuna Tree-structured Parzen Estimator Tuning\n15 trials · 3 min timeout · 5-Fold Cross-Validation"]
     BEST["Best Model: LightGBM\nF1 macro = 0.918"]
     RUNNER["Runner-up:\nHistGradientBoosting"]
 
@@ -195,7 +195,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     COL["For each numeric column\n(on training data)"]
-    DETECT["Detect outliers via IQR\nQ1 - 1.5·IQR ... Q3 + 1.5·IQR"]
+    DETECT["Detect outliers via Interquartile Range (IQR)\nQ1 - 1.5·IQR ... Q3 + 1.5·IQR"]
     CHECK{"> 0.3% outliers?"}
     SKIP["Skip — within tolerance"]
     TEST["Test 4 smoothing strategies"]
@@ -226,7 +226,7 @@ flowchart LR
     GPU{"CUDA GPU\nAvailable?"}
     YES_GPU["XGBoost → device='cuda'\nLightGBM → device='gpu'\nFeature Importance → XGB GPU"]
     NO_GPU["All models → CPU\nn_jobs=-1 (all cores)"]
-    PARALLEL["All CV folds parallel\njoblib.Parallel for\nsample_weight models"]
+    PARALLEL["All Cross-Validation folds parallel\njoblib.Parallel for\nsample_weight models"]
 
     HW --> GPU
     GPU -->|Yes| YES_GPU
