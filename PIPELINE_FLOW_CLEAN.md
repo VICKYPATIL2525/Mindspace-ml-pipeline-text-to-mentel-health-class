@@ -1,4 +1,4 @@
-# Mindspace ML Pipeline — Diagrams (Clean)
+# Mindspace ML Pipeline — Diagrams
 
 ## 1. End-to-End Pipeline Flow
 
