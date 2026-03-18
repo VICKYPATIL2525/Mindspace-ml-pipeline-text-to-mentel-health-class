@@ -1,0 +1,21 @@
+# =============================================================================
+# Mindspace Deployment — API Server Requirements
+# Minimal dependencies for running deployment/main.py (FastAPI inference server).
+# Versions pinned to what is installed in myenv (verified via pip freeze).
+# =============================================================================
+
+# ── API framework ─────────────────────────────────────────────────────────────
+fastapi==0.134.0
+uvicorn[standard]==0.41.0
+pydantic==2.12.5
+python-multipart==0.0.22
+
+# ── ML inference (load and run the trained LightGBM model) ───────────────────
+numpy==2.4.2
+pandas==2.3.3
+scikit-learn==1.8.0
+lightgbm==4.6.0
+joblib==1.5.3
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+python-dotenv==1.2.1
