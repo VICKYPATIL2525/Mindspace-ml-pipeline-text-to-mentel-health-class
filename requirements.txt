@@ -16,3 +16,4 @@ optuna==4.7.0
 optuna-integration==4.7.0
 tqdm==4.67.3
 statsmodels==0.14.6
+plotly>=5.17.0
