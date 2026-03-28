@@ -15,7 +15,7 @@ Accepts 43 pre-extracted speech/text features, runs the full preprocessing pipel
 
 ```
 deployment/
-├── main.py           # FastAPI app (all routes + preprocessing logic)
+├── api_text_to_sentiment.py   # FastAPI app (all routes + preprocessing logic)
 ├── requirements.txt  # Pinned dependencies for deployment
 └── README.md         # This file
 
@@ -50,7 +50,7 @@ Ports `8000` and `8080` may be blocked on Windows — use `9000` instead.
 ```bash
 # From: C:\Users\vicky\OneDrive\Desktop\SCS-projects\Mindspace-voice-agent\
 
-myenv\Scripts\python -m uvicorn deployment.main:app --host 0.0.0.0 --port 9000 --reload
+myenv\Scripts\python -m uvicorn deployment.api_text_to_sentiment:app --host 0.0.0.0 --port 9000 --reload
 ```
 
 Server starts at: `http://localhost:9000`
@@ -97,7 +97,7 @@ language_hindi, language_marathi
 ## Example Request
 
 ```bash
-curl -X POST http://localhost:8080/predict \
+curl -X POST http://localhost:9000/predict \
   -H "Content-Type: application/json" \
   -d '{
     "overall_sentiment_score": -0.45,
