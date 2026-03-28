@@ -1,13 +1,19 @@
 # Mindspace Voice Agent — Deployment
 
-FastAPI inference server for the Mindspace mental health classifier.
+Two FastAPI inference servers for mental health classification — one for text features, one for voice/acoustic features.
 
 ---
 
 ## What This Does
 
-Serves the trained LightGBM model (92% accuracy, 7-class mental health classification) via a REST API.
-Accepts 43 pre-extracted speech/text features, runs the full preprocessing pipeline internally, and returns a prediction with per-class probabilities.
+Serves two trained ML models via REST APIs:
+
+| API | Model | Input | Output | Accuracy |
+|-----|-------|-------|--------|----------|
+| **Text API** (`api_text_to_sentiment.py`) | LightGBM | 43 linguistic/text features | 7-class prediction | 92.0% |
+| **Voice API** (`api_voice_to_sentiment.py`) | XGBoost | 1,351 OpenSMILE acoustic features | 6-class prediction | 60.3% |
+
+Both APIs accept pre-extracted features, run the full preprocessing pipeline internally (outlier smoothing → scaling), and return a prediction with per-class probabilities.
 
 ---
 
@@ -15,53 +21,104 @@ Accepts 43 pre-extracted speech/text features, runs the full preprocessing pipel
 
 ```
 deployment/
-├── api_text_to_sentiment.py   # FastAPI app (all routes + preprocessing logic)
-├── requirements.txt  # Pinned dependencies for deployment
-└── README.md         # This file
+├── api_text_to_sentiment.py    # Text API — LightGBM, 43 features, 7 classes
+├── api_voice_to_sentiment.py   # Voice API — XGBoost, 1351 features, 6 classes
+├── .env                        # API_KEY (never commit to git)
+├── requirements.txt            # Pinned dependencies for deployment
+└── README.md                   # This file
 
-pipeline_output/LightGBM_13032026_110356/   # Model artifacts (loaded at startup)
-├── best_model.joblib           # Trained LightGBM classifier
-├── scaler.joblib               # RobustScaler (fit on 40K training rows)
-├── label_encoder.joblib        # Integer → class name decoder
-├── encoding_artifacts.joblib   # Categorical encoding maps
-├── outlier_transformers.joblib # Per-column outlier smoothing transforms
-├── feature_names.json          # Ordered list of 43 selected features
-└── model_metadata.json         # Hyperparams, test metrics, class names
+pipeline_output/
+├── LightGBM_13032026_110356/   # Text model artifacts
+│   ├── best_model.joblib           # Trained LightGBM classifier
+│   ├── scaler.joblib               # RobustScaler (fit on 40K training rows)
+│   ├── label_encoder.joblib        # Integer → class name decoder
+│   ├── encoding_artifacts.joblib   # Categorical encoding maps
+│   ├── outlier_transformers.joblib # Per-column outlier smoothing transforms
+│   ├── feature_names.json          # Ordered list of 43 selected features
+│   └── model_metadata.json         # Hyperparams, test metrics, class names
+│
+└── XGBoost_27032026_152209/    # Voice model artifacts
+    ├── best_model.joblib           # Trained XGBoost classifier
+    ├── scaler.joblib               # RobustScaler (fit on training rows)
+    ├── label_encoder.joblib        # Integer → class name decoder
+    ├── encoding_artifacts.joblib   # Categorical encoding maps
+    ├── outlier_transformers.joblib # Per-column outlier smoothing transforms
+    ├── feature_names.json          # Ordered list of 1,351 selected features
+    └── model_metadata.json         # Hyperparams, test metrics, class names
 ```
 
 ---
 
 ## API Endpoints
 
-| Method | Route | Description |
-|--------|-------|-------------|
-| `GET` | `/` | Service info — model name, accuracy, output classes |
-| `GET` | `/health` | Health check — confirms all 7 artifacts are loaded |
-| `POST` | `/predict` | Main prediction — returns label + confidence + all probabilities |
-| `GET` | `/model/info` | Full model metadata — hyperparams, CV score, test metrics |
+Both APIs share the same 4 endpoints:
+
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| `GET` | `/` | No | Service info — model name, accuracy, output classes |
+| `GET` | `/health` | No | Health check — confirms all 7 artifacts are loaded |
+| `POST` | `/predict` | `X-API-Key` | Main prediction — returns label + confidence + all probabilities |
+| `GET` | `/model/info` | `X-API-Key` | Full model metadata — hyperparams, CV score, test metrics |
 
 ---
 
 ## Running Locally
 
 **Important:** Always run from the **project root** (`Mindspace-voice-agent/`), not from inside `deployment/`.
-Ports `8000` and `8080` may be blocked on Windows — use `9000` instead.
+
+### Text API (LightGBM — port 9000)
 
 ```bash
-# From: C:\Users\vicky\OneDrive\Desktop\SCS-projects\Mindspace-voice-agent\
-
-myenv\Scripts\python -m uvicorn deployment.api_text_to_sentiment:app --host 0.0.0.0 --port 9000 --reload
+# From project root:
+uvicorn deployment.api_text_to_sentiment:app --reload --port 9000
 ```
 
-Server starts at: `http://localhost:9000`
-Swagger UI (interactive docs): `http://localhost:9000/docs`
-ReDoc: `http://localhost:9000/redoc`
+- Server: `http://localhost:9000`
+- Swagger docs: `http://localhost:9000/docs`
+
+### Voice API (XGBoost — port 9100)
+
+```bash
+# From project root:
+uvicorn deployment.api_voice_to_sentiment:app --reload --port 9100
+```
+
+- Server: `http://localhost:9100`
+- Swagger docs: `http://localhost:9100/docs`
+
+### Running from inside `deployment/` folder
+
+```bash
+cd deployment
+uvicorn api_text_to_sentiment:app --reload --port 9000
+uvicorn api_voice_to_sentiment:app --reload --port 9100
+```
+
+> **Note:** On Windows, some ports (e.g. 9001) may be reserved by Hyper-V. If you get `[Errno 13] Permission denied`, pick a different port. Run `netsh interface ipv4 show excludedportrange protocol=tcp` to see reserved ports.
 
 ---
 
-## Input Format
+## Authentication
 
-`POST /predict` accepts JSON with **43 float fields**:
+Both APIs require an `X-API-Key` header on protected routes (`/predict`, `/model/info`).
+
+The key is loaded from `deployment/.env`:
+
+```
+API_KEY=your-secret-key-here
+```
+
+Example authenticated request:
+
+```bash
+curl -H "X-API-Key: YOUR_KEY" http://localhost:9000/model/info
+```
+
+---
+
+## Text API — Input Format
+
+`POST /predict` accepts JSON with **43 float fields** (flat body, no wrapper):
 
 ### Linguistic / Semantic Scores (19 fields)
 ```
@@ -92,13 +149,12 @@ language_hindi, language_marathi
 > `language_hindi=1, language_marathi=0` → Hindi
 > `language_hindi=0, language_marathi=1` → Marathi
 
----
-
-## Example Request
+### Example Request (Text API)
 
 ```bash
 curl -X POST http://localhost:9000/predict \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_KEY" \
   -d '{
     "overall_sentiment_score": -0.45,
     "semantic_coherence_score": 0.32,
@@ -129,7 +185,7 @@ curl -X POST http://localhost:9000/predict \
   }'
 ```
 
-## Example Response
+### Example Response (Text API)
 
 ```json
 {
@@ -151,23 +207,63 @@ curl -X POST http://localhost:9000/predict \
 
 ---
 
-## Preprocessing Pipeline (inside the API)
+## Voice API — Input Format
 
-The API replicates the exact pipeline steps from training — in the same order:
+`POST /predict` accepts JSON with a **`features` key** containing a flat dict of all 1,351 OpenSMILE acoustic feature values:
+
+```json
+{
+  "features": {
+    "pcm_fftMag_fband250-650_sma_de_pctlrange0-1": 0.0042,
+    "mfcc_sma_de[11]_meanPeakDist": 12.34,
+    "...": "... (all 1,351 features required)"
+  }
+}
+```
+
+The full list of required feature names can be retrieved via `GET /model/info` under the `feature_names` key.
+
+Feature categories include: MFCC coefficients, spectral features (entropy, rolloff, harmonicity, kurtosis, slope, flux, variance), pitch (F0), shimmer, jitter, voicing, auditory spectrum (audSpec), RMS energy, zero-crossing rate, psychoacoustic sharpness, HNR, and their delta/statistical functionals.
+
+### Example Response (Voice API)
+
+```json
+{
+  "prediction": "depression",
+  "confidence": 0.6521,
+  "probabilities": {
+    "anxiety": 0.0832,
+    "bipolar": 0.0411,
+    "depression": 0.6521,
+    "normal": 0.0234,
+    "stress": 0.1147,
+    "suicidal": 0.0855
+  },
+  "model": "XGBoost",
+  "accuracy": 0.6033
+}
+```
+
+---
+
+## Preprocessing Pipeline (inside both APIs)
+
+Both APIs replicate the exact pipeline steps from training — in the same order:
 
 ```
-Raw JSON input (43 features)
+Raw JSON input
     │
     ▼  Step 1: Outlier Smoothing (outlier_transformers.joblib)
-    │   • yeo-johnson  → PowerTransformer.transform() — 58 columns
-    │   • sqrt         → np.sqrt(x + shift)           — 3 columns
-    │   • winsorize    → clip to [lower, upper]        — 2 columns
+    │   • yeo-johnson  → PowerTransformer.transform()
+    │   • sqrt         → np.sqrt(clip(x, 0))
+    │   • log1p        → np.log1p(clip(x, 0))
+    │   • winsorize    → clip to [lower, upper]
     │
     ▼  Step 2: Scaling (scaler.joblib)
-    │   • RobustScaler.transform() on all 43 features
+    │   • RobustScaler.transform() on all features
     │
     ▼  Step 3: Predict (best_model.joblib)
-    │   • LightGBM.predict_proba() → 7-class probabilities
+    │   • model.predict_proba() → class probabilities
     │
     ▼  Step 4: Decode (label_encoder.joblib)
         • LabelEncoder.inverse_transform() → class name string
@@ -176,6 +272,8 @@ Raw JSON input (43 features)
 ---
 
 ## Output Classes
+
+### Text API — 7 Classes
 
 | Class | Description |
 |-------|-------------|
@@ -187,19 +285,44 @@ Raw JSON input (43 features)
 | `Stress` | Stress-related indicators |
 | `Suicidal_Tendency` | Suicidal ideation indicators |
 
+### Voice API — 6 Classes
+
+| Class | Description |
+|-------|-------------|
+| `anxiety` | Anxiety disorder indicators |
+| `bipolar` | Bipolar / manic episode indicators |
+| `depression` | Depressive episode indicators |
+| `normal` | No significant mental health concerns |
+| `stress` | Stress-related indicators |
+| `suicidal` | Suicidal ideation indicators |
+
 ---
 
 ## Model Performance
 
+### Text API — LightGBM
+
 | Metric | Score |
 |--------|-------|
 | Accuracy | 0.920 |
-| F1 Macro | 0.9181 |
+| F1 Macro | 0.918 |
 | F1 Weighted | 0.920 |
-| Precision Macro | 0.9167 |
-| Recall Macro | 0.9202 |
+| Precision Macro | 0.917 |
+| Recall Macro | 0.920 |
 
-Trained on: 40,000 samples | Tested on: 10,000 samples | Random seed: 42
+Trained on: 40,000 samples | Tested on: 10,000 samples
+
+### Voice API — XGBoost
+
+| Metric | Score |
+|--------|-------|
+| Accuracy | 0.603 |
+| F1 Macro | 0.563 |
+| F1 Weighted | 0.550 |
+| Precision Macro | 0.633 |
+| Recall Macro | 0.619 |
+
+Trained on: 2,400 samples | Tested on: 600 samples
 
 ---
 
@@ -210,9 +333,12 @@ Trained on: 40,000 samples | Tested on: 10,000 samples | Random seed: 42
 3. Copy `pipeline_output/` to EC2 (or use S3)
 4. Run with gunicorn + uvicorn workers:
    ```bash
-   gunicorn deployment.main:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8080
+   # Text API
+   gunicorn deployment.api_text_to_sentiment:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:9000
+   # Voice API
+   gunicorn deployment.api_voice_to_sentiment:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:9100
    ```
-5. Configure security group to allow inbound TCP on port 8080
+5. Configure security group to allow inbound TCP on ports 9000 and 9100
 6. (Optional) Put Nginx in front as reverse proxy on port 80/443
 
 ---
@@ -221,4 +347,5 @@ Trained on: 40,000 samples | Tested on: 10,000 samples | Random seed: 42
 
 | Date | Change |
 |------|--------|
-| 2026-03-18 | Initial FastAPI app created (`main.py`) — all 4 endpoints, full preprocessing pipeline, tested locally on port 8080 |
+| 2026-03-18 | Text API created (`api_text_to_sentiment.py`) — LightGBM, 43 features, 7 classes, all 4 endpoints, tested on port 9000 |
+| 2026-03-28 | Voice API created (`api_voice_to_sentiment.py`) — XGBoost, 1,351 acoustic features, 6 classes, all 4 endpoints, tested on port 9100 |

@@ -330,10 +330,12 @@ def apply_outlier_transforms(df: pd.DataFrame) -> pd.DataFrame:
             df[col] = pt.transform(df[[col]].values).ravel()
 
         elif strategy == "sqrt":
-            # Shift negative values to zero before taking sqrt (sqrt of negative is undefined)
-            min_val = df[col].min()
-            shift = abs(min_val) + 1e-6 if min_val < 0 else 0
-            df[col] = np.sqrt(df[col] + shift)
+            # Clip negatives to 0 then sqrt — matches training pipeline exactly
+            df[col] = np.sqrt(df[col].clip(lower=0))
+
+        elif strategy == "log1p":
+            # Clip negatives to 0 then log1p — matches training pipeline exactly
+            df[col] = np.log1p(df[col].clip(lower=0))
 
         elif strategy == "winsorize":
             # Clip values to the bounds calculated from training data percentiles
@@ -466,3 +468,9 @@ def model_info(_: None = Security(verify_api_key)):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("api_text_to_sentiment:app", host="0.0.0.0", port=9000, reload=True)
+
+# To run the API (from the project root directory):
+# uvicorn deployment.api_text_to_sentiment:app --reload --port 9000
+# Then open http://localhost:9000/docs in the browser to access the interactive API docs (Swagger UI).
+# to run this from folder deployment, use:
+# uvicorn api_text_to_sentiment:app --reload --port 9000

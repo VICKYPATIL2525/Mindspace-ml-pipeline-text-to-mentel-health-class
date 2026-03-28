@@ -39,5 +39,9 @@ desktop.ini
 ehthumbs.db
 
 # ── Large Data Files (exceed GitHub 100 MB limit) ────────────────────────────
+data/
 data/mental_health_synthetic_dataset_10k.csv
 data/balanced-dataset.csv
+.data/mental_health_synthetic_dataset_10k.csv
+.data/balanced-dataset.csv
+

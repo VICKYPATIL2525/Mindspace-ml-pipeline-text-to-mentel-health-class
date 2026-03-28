@@ -191,15 +191,29 @@ Mindspace-voice-agent/
 │   └── mental_health_synthetic_dataset_with_normal.csv   # Dataset (50K rows, 66 cols)
 ├── data-generation-script/
 │   └── new-with-normal.py           # Synthetic data generation script
-├── deployment/                      # Deployment app (to be built)
+├── deployment/                      # FastAPI inference servers
+│   ├── api_text_to_sentiment.py     # Text API — LightGBM, 43 features, 7 classes (port 9000)
+│   ├── api_voice_to_sentiment.py    # Voice API — XGBoost, 1351 features, 6 classes (port 9100)
+│   ├── .env                         # API_KEY (never commit)
+│   ├── requirements.txt             # Deployment-only dependencies
+│   └── README.md                    # Deployment documentation
 ├── pipeline_output/
-│   └── LightGBM_13032026_110356/    # Saved model artifacts
-│       ├── best_model.joblib        # Trained LightGBM model
+│   ├── LightGBM_13032026_110356/    # Text model artifacts
+│   │   ├── best_model.joblib        # Trained LightGBM model
+│   │   ├── scaler.joblib            # RobustScaler (fit on train)
+│   │   ├── label_encoder.joblib     # Target label encoder
+│   │   ├── encoding_artifacts.joblib # Categorical encoding mappings
+│   │   ├── outlier_transformers.joblib # Outlier smoothing transformers
+│   │   ├── feature_names.json       # 43 selected feature names
+│   │   ├── model_metadata.json      # Metrics, params, class names
+│   │   └── pipeline_state.json      # Full pipeline run state
+│   └── XGBoost_27032026_152209/     # Voice model artifacts
+│       ├── best_model.joblib        # Trained XGBoost model
 │       ├── scaler.joblib            # RobustScaler (fit on train)
 │       ├── label_encoder.joblib     # Target label encoder
 │       ├── encoding_artifacts.joblib # Categorical encoding mappings
 │       ├── outlier_transformers.joblib # Outlier smoothing transformers
-│       ├── feature_names.json       # 43 selected feature names
+│       ├── feature_names.json       # 1,351 selected feature names
 │       ├── model_metadata.json      # Metrics, params, class names
 │       └── pipeline_state.json      # Full pipeline run state
 └── myenv/                           # Python virtual environment
@@ -308,5 +322,8 @@ These artifacts are everything needed to **reproduce the exact preprocessing and
 
 - [x] Synthetic dataset generation (multilingual: English, Hindi, Marathi)
 - [x] End-to-end ML pipeline (18 steps, anti-leakage)
-- [x] Model training & hyperparameter tuning — LightGBM (92% accuracy)
-- [ ] Deployment app — voice/text interface for real-time mental health profiling
+- [x] Model training & hyperparameter tuning — LightGBM (92% accuracy, text features)
+- [x] Model training & hyperparameter tuning — XGBoost (60.3% accuracy, voice/acoustic features)
+- [x] Text API — FastAPI server for LightGBM text-to-sentiment (43 features, 7 classes, port 9000)
+- [x] Voice API — FastAPI server for XGBoost voice-to-sentiment (1,351 features, 6 classes, port 9100)
+- [ ] Voice agent app — real-time voice interface for mental health profiling
