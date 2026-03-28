@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mindspace API Test</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>🧠 Mindspace Mental Health Classifier</h1>
+            <p>Test the API with 43 features and see predictions</p>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Left Panel: Samples Loader -->
+            <section class="panel samples-panel">
+                <h2>📋 Load Demo Samples</h2>
+                <div id="samples-container" class="samples-container">
+                    <p class="loading">Loading samples...</p>
+                </div>
+            </section>
+
+            <!-- Middle/Right Panel: Form & Results -->
+            <section class="panel form-panel">
+                <!-- Tabs -->
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="form">Form</button>
+                    <button class="tab-btn" data-tab="json">JSON</button>
+                    <button class="tab-btn" data-tab="results">Results</button>
+                </div>
+
+                <!-- Form Tab -->
+                <div id="form-tab" class="tab-content active">
+                    <h3>Enter Features</h3>
+                    <form id="predict-form">
+                        <div id="form-fields" class="form-fields">
+                            <!-- Fields will be populated dynamically -->
+                        </div>
+                        <button type="submit" class="btn-primary">Predict</button>
+                        <button type="reset" class="btn-secondary">Clear</button>
+                    </form>
+                </div>
+
+                <!-- JSON Tab -->
+                <div id="json-tab" class="tab-content">
+                    <h3>Raw JSON</h3>
+                    <textarea id="json-input" class="json-textarea" placeholder="Enter or paste JSON payload here..."></textarea>
+                    <button class="btn-primary" onclick="sendJSON()">Predict from JSON</button>
+                </div>
+
+                <!-- Results Tab -->
+                <div id="results-tab" class="tab-content">
+                    <h3>Prediction Result</h3>
+                    <div id="results-container" class="results-container">
+                        <p class="placeholder">No predictions yet. Submit a form or load a sample.</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>🔐 All requests include X-API-Key header authentication</p>
+            <p>API Endpoint: <code>http://127.0.0.1:9000/predict</code></p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
