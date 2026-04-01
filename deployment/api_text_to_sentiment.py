@@ -473,4 +473,5 @@ if __name__ == "__main__":
 # uvicorn deployment.api_text_to_sentiment:app --reload --port 9000
 # Then open http://localhost:9000/docs in the browser to access the interactive API docs (Swagger UI).
 # to run this from folder deployment, use:
-# uvicorn api_text_to_sentiment:app --reload --port 9000
+# uvicorn api_text_to_sentiment:app --reload --port 9000 but in production,
+# # you would typically run it without --reload and behind a production server like Gunicorn or Uvicorn with multiple workers for better performance.
