@@ -1,0 +1,12 @@
+{
+  "prediction": "normal",
+  "confidence": 0.7821,
+  "probabilities": {
+    "anxiety": 0.0412,
+    "bipolar": 0.0318,
+    "depression": 0.0601,
+    "normal": 0.7821,
+    "stress": 0.0534,
+    "suicidal": 0.0314
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "prediction": "Anxiety",
+  "confidence": 0.8742,
+  "probabilities": {
+    "Anxiety": 0.8742,
+    "Bipolar_Mania": 0.0183,
+    "Depression": 0.0621,
+    "Normal": 0.0124,
+    "Phobia": 0.0198,
+    "Stress": 0.0098,
+    "Suicidal_Tendency": 0.0034
+  }
+}
