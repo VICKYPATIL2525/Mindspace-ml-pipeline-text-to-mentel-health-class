@@ -27,7 +27,7 @@ deployment/
 ├── requirements.txt            # Pinned dependencies for deployment
 └── README.md                   # This file
 
-pipeline_output/
+text_ml_pipeline_output/
 ├── LightGBM_13032026_110356/   # Text model artifacts
 │   ├── best_model.joblib           # Trained LightGBM classifier
 │   ├── scaler.joblib               # RobustScaler (fit on 40K training rows)
@@ -37,13 +37,14 @@ pipeline_output/
 │   ├── feature_names.json          # Ordered list of 43 selected features
 │   └── model_metadata.json         # Hyperparams, test metrics, class names
 │
-└── XGBoost_27032026_152209/    # Voice model artifacts
-    ├── best_model.joblib           # Trained XGBoost classifier
+voice_ml_pipeline_output/
+└── ExtraTrees_25042026_124726/ # Voice model artifacts
+  ├── best_model.joblib           # Trained voice classifier
     ├── scaler.joblib               # RobustScaler (fit on training rows)
     ├── label_encoder.joblib        # Integer → class name decoder
     ├── encoding_artifacts.joblib   # Categorical encoding maps
     ├── outlier_transformers.joblib # Per-column outlier smoothing transforms
-    ├── feature_names.json          # Ordered list of 1,351 selected features
+  ├── feature_names.json          # Ordered list of saved voice features
     └── model_metadata.json         # Hyperparams, test metrics, class names
 ```
 
@@ -330,7 +331,7 @@ Trained on: 2,400 samples | Tested on: 600 samples
 
 1. Launch EC2 instance (Ubuntu 22.04, t3.medium or above)
 2. Install Python 3.10+, clone repo, create venv, install `deployment/requirements.txt`
-3. Copy `pipeline_output/` to EC2 (or use S3)
+3. Copy `text_ml_pipeline_output/` and/or `voice_ml_pipeline_output/` to EC2 (or use S3)
 4. Run with gunicorn + uvicorn workers:
    ```bash
    # Text API

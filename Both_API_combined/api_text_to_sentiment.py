@@ -49,11 +49,64 @@ def verify_api_key(key: str = Security(_api_key_header)) -> None:
         raise HTTPException(status_code=403, detail="Invalid or missing API key. Pass it as X-API-Key header.")
 
 # ─── Artifact paths ──────────────────────────────────────────────────────────
-# All model artifacts were saved by the ML pipeline (full-final-pipeline.ipynb)
-# into a timestamped folder. This path points to that folder.
-# __file__ is deployment/api_text_to_sentiment.py → .parent.parent is the project root.
+# Resolve artifacts from the dedicated full-pipeline output root.
+PROJECT_ROOT = Path(__file__).parent.parent
+ARTIFACTS_ROOT = PROJECT_ROOT / "text_ml_pipeline_output"
 
-ARTIFACTS_DIR = Path(__file__).parent.parent / "pipeline_output" / "LightGBM_13032026_110356"
+
+def _looks_like_text_artifacts(path: Path) -> bool:
+    feature_names_path = path / "feature_names.json"
+    if not feature_names_path.exists():
+        return False
+
+    try:
+        feature_names = set(json.loads(feature_names_path.read_text()))
+    except Exception:
+        return False
+
+    expected_markers = {
+        "overall_sentiment_score",
+        "semantic_coherence_score",
+        "language_hindi",
+        "language_marathi",
+    }
+    return expected_markers.issubset(feature_names)
+
+
+def _resolve_artifacts_dir() -> Path:
+    override = os.environ.get("TEXT_ARTIFACTS_DIR")
+    if override:
+        override_path = Path(override)
+        if not override_path.is_absolute():
+            override_path = PROJECT_ROOT / override_path
+        return override_path
+
+    required_files = {
+        "best_model.joblib",
+        "scaler.joblib",
+        "label_encoder.joblib",
+        "outlier_transformers.joblib",
+        "feature_names.json",
+        "model_metadata.json",
+    }
+
+    candidates = [
+        path for path in ARTIFACTS_ROOT.iterdir()
+        if path.is_dir()
+        and all((path / name).exists() for name in required_files)
+        and _looks_like_text_artifacts(path)
+    ] if ARTIFACTS_ROOT.exists() else []
+
+    if not candidates:
+        raise FileNotFoundError(
+            f"No valid text artifact folder found in {ARTIFACTS_ROOT}. "
+            "Run the full pipeline first or set TEXT_ARTIFACTS_DIR."
+        )
+
+    return max(candidates, key=lambda path: path.stat().st_mtime)
+
+
+ARTIFACTS_DIR = _resolve_artifacts_dir()
 
 # ─── Global state (loaded once at startup) ────────────────────────────────────
 # We use a plain dict to hold all artifacts in memory so every request can
@@ -81,7 +134,8 @@ def load_artifacts():
     artifacts["model"]               = joblib.load(ARTIFACTS_DIR / "best_model.joblib")
     artifacts["scaler"]              = joblib.load(ARTIFACTS_DIR / "scaler.joblib")
     artifacts["label_encoder"]       = joblib.load(ARTIFACTS_DIR / "label_encoder.joblib")
-    artifacts["encoding"]            = joblib.load(ARTIFACTS_DIR / "encoding_artifacts.joblib")
+    encoding_path = ARTIFACTS_DIR / "encoding_artifacts.joblib"
+    artifacts["encoding"]            = joblib.load(encoding_path) if encoding_path.exists() else {}
     artifacts["outlier_transformers"] = joblib.load(ARTIFACTS_DIR / "outlier_transformers.joblib")
     artifacts["feature_names"]       = json.loads((ARTIFACTS_DIR / "feature_names.json").read_text())
     artifacts["metadata"]            = json.loads((ARTIFACTS_DIR / "model_metadata.json").read_text())

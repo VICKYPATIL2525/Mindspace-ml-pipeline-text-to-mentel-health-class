@@ -58,9 +58,43 @@ def verify_api_key(key: str = Security(_api_key_header)) -> None:
 
 
 # ─── Artifact paths ──────────────────────────────────────────────────────────
-# Points to the XGBoost model artifacts folder.
-# __file__ is deployment/api_voice_to_sentiment.py → .parent.parent is the project root.
-ARTIFACTS_DIR = Path(__file__).parent.parent / "pipeline_output" / "XGBoost_27032026_152209"
+# Resolve artifacts from the dedicated voice pipeline output root.
+PROJECT_ROOT = Path(__file__).parent.parent
+ARTIFACTS_ROOT = PROJECT_ROOT / "voice_ml_pipeline_output"
+
+
+def _resolve_artifacts_dir() -> Path:
+    override = os.environ.get("VOICE_ARTIFACTS_DIR")
+    if override:
+        override_path = Path(override)
+        if not override_path.is_absolute():
+            override_path = PROJECT_ROOT / override_path
+        return override_path
+
+    required_files = {
+        "best_model.joblib",
+        "scaler.joblib",
+        "label_encoder.joblib",
+        "outlier_transformers.joblib",
+        "feature_names.json",
+        "model_metadata.json",
+    }
+
+    candidates = [
+        path for path in ARTIFACTS_ROOT.iterdir()
+        if path.is_dir() and all((path / name).exists() for name in required_files)
+    ] if ARTIFACTS_ROOT.exists() else []
+
+    if not candidates:
+        raise FileNotFoundError(
+            f"No valid voice artifact folder found in {ARTIFACTS_ROOT}. "
+            "Run the voice pipeline first or set VOICE_ARTIFACTS_DIR."
+        )
+
+    return max(candidates, key=lambda path: path.stat().st_mtime)
+
+
+ARTIFACTS_DIR = _resolve_artifacts_dir()
 
 # ─── Global state (loaded once at startup) ────────────────────────────────────
 artifacts: dict = {}
@@ -83,7 +117,8 @@ def load_artifacts() -> None:
     artifacts["model"]                = joblib.load(ARTIFACTS_DIR / "best_model.joblib")
     artifacts["scaler"]               = joblib.load(ARTIFACTS_DIR / "scaler.joblib")
     artifacts["label_encoder"]        = joblib.load(ARTIFACTS_DIR / "label_encoder.joblib")
-    artifacts["encoding"]             = joblib.load(ARTIFACTS_DIR / "encoding_artifacts.joblib")
+    encoding_path = ARTIFACTS_DIR / "encoding_artifacts.joblib"
+    artifacts["encoding"]             = joblib.load(encoding_path) if encoding_path.exists() else {}
     artifacts["outlier_transformers"] = joblib.load(ARTIFACTS_DIR / "outlier_transformers.joblib")
     artifacts["feature_names"]        = json.loads((ARTIFACTS_DIR / "feature_names.json").read_text())
     artifacts["metadata"]             = json.loads((ARTIFACTS_DIR / "model_metadata.json").read_text())
