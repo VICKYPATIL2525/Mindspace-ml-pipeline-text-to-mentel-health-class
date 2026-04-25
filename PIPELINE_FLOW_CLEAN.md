@@ -246,7 +246,7 @@ flowchart LR
 ```mermaid
 flowchart LR
     PIPELINE["Pipeline Run Complete"]
-    FOLDER["pipeline_output/\nLightGBM_13032026_110356/"]
+    FOLDER["text_ml_pipeline_output/\nLightGBM_13032026_110356/"]
     M["best_model.joblib\nTrained LightGBM"]
     SC["scaler.joblib\nRobustScaler"]
     LE["label_encoder.joblib\n7 class mappings"]

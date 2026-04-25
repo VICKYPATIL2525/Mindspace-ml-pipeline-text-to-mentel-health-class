@@ -21,7 +21,7 @@
 
 ## Project Summary
 
-Mindspace is a mental health text analysis and classification system. The core of the project is a **fully automated, adaptive ML pipeline** (`full-final-pipeline.ipynb`) that takes raw CSV data through exploratory data analysis, feature engineering, model training, hyperparameter tuning, and evaluation — all in a single notebook.
+Mindspace is a mental health text analysis and classification system. The core of the project is a **fully automated, adaptive ML pipeline** (`text-ml-pipeline.ipynb`) that takes raw CSV data through exploratory data analysis, feature engineering, model training, hyperparameter tuning, and evaluation — all in a single notebook.
 
 The pipeline is designed to be **generic and data-agnostic**: point it at any CSV, set a target column, and it handles everything automatically — from detecting data quality issues to selecting the best model.
 
@@ -184,7 +184,7 @@ Tuned hyperparameters vary per model (e.g., `n_estimators`, `max_depth`, `learni
 
 ```
 Mindspace-voice-agent/
-├── full-final-pipeline.ipynb        # Main ML pipeline (18 steps, 39 cells)
+├── text-ml-pipeline.ipynb           # Main text ML pipeline (18 steps, 39 cells)
 ├── PIPELINE_FLOW_CLEAN.md           # Mermaid diagrams of every pipeline flow
 ├── requirements.txt                 # Python dependencies
 ├── data/
@@ -197,8 +197,8 @@ Mindspace-voice-agent/
 │   ├── .env                         # API_KEY (never commit)
 │   ├── requirements.txt             # Deployment-only dependencies
 │   └── README.md                    # Deployment documentation
-├── pipeline_output/
-│   ├── LightGBM_13032026_110356/    # Text model artifacts
+├── text_ml_pipeline_output/
+│   ├── LightGBM_13032026_110356/    # Text/full-pipeline artifacts
 │   │   ├── best_model.joblib        # Trained LightGBM model
 │   │   ├── scaler.joblib            # RobustScaler (fit on train)
 │   │   ├── label_encoder.joblib     # Target label encoder
@@ -207,13 +207,14 @@ Mindspace-voice-agent/
 │   │   ├── feature_names.json       # 43 selected feature names
 │   │   ├── model_metadata.json      # Metrics, params, class names
 │   │   └── pipeline_state.json      # Full pipeline run state
-│   └── XGBoost_27032026_152209/     # Voice model artifacts
-│       ├── best_model.joblib        # Trained XGBoost model
+├── voice_ml_pipeline_output/
+│   └── ExtraTrees_25042026_124726/  # Voice/PCA pipeline artifacts
+│       ├── best_model.joblib        # Trained voice model
 │       ├── scaler.joblib            # RobustScaler (fit on train)
 │       ├── label_encoder.joblib     # Target label encoder
 │       ├── encoding_artifacts.joblib # Categorical encoding mappings
 │       ├── outlier_transformers.joblib # Outlier smoothing transformers
-│       ├── feature_names.json       # 1,351 selected feature names
+│       ├── feature_names.json       # Ordered list of saved voice features
 │       ├── model_metadata.json      # Metrics, params, class names
 │       └── pipeline_state.json      # Full pipeline run state
 └── myenv/                           # Python virtual environment
@@ -258,7 +259,7 @@ When a CUDA-capable GPU is detected, XGBoost uses `device='cuda'` and LightGBM u
 
 ## How to Run
 
-1. **Open** `full-final-pipeline.ipynb` in Jupyter or VS Code
+1. **Open** `text-ml-pipeline.ipynb` in Jupyter or VS Code
 2. **Set your kernel** to the `myenv` virtual environment
 3. **Run all cells** sequentially (Ctrl+Shift+Enter in VS Code)
 4. The pipeline will:
@@ -268,7 +269,7 @@ When a CUDA-capable GPU is detected, XGBoost uses `device='cuda'` and LightGBM u
    - Train 8 models with cross-validation
    - Tune the top 2 with Optuna
    - Evaluate on the test set
-   - Save all artifacts to `pipeline_output/`
+   - Save all artifacts to the configured output root (`text_ml_pipeline_output/` for the full pipeline)
 
 ### Using a Different Dataset
 
@@ -282,7 +283,7 @@ To use a different CSV file:
 
 ## Saved Artifacts
 
-Each run creates a unique output folder (`pipeline_output/{Model}_{ddmmyyyy}_{hhmmss}/`) containing:
+Each run creates a unique output folder (`text_ml_pipeline_output/{Model}_{ddmmyyyy}_{hhmmss}/` for the full pipeline) containing:
 
 | File | Description |
 |------|-------------|
