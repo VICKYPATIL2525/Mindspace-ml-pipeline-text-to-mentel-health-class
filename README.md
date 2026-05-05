@@ -1,13 +1,13 @@
-# Mindspace — Mental Health Profiling via NLP & Machine Learning
+# Mindspace — Mental Health Profiling via NLP & Voice Features
 
-> **Automated ML pipeline that classifies mental health profiles from speech/text features using an 18-step, data-driven workflow — achieving 92% accuracy and 0.918 F1 (macro) across 7 classes.**
+> **Dual-pipeline ML system that classifies mental health profiles from text/linguistic features and voice/acoustic PCA features — achieving 92% accuracy (text) and 99.3% accuracy (voice) across 7 and 6 classes respectively.**
 
 ---
 
 ## Table of Contents
 
 - [Project Summary](#project-summary)
-- [Dataset](#dataset)
+- [Datasets](#datasets)
 - [Pipeline Architecture](#pipeline-architecture)
 - [Algorithms & Models](#algorithms--models)
 - [Key Results](#key-results)
@@ -16,28 +16,40 @@
 - [How to Run](#how-to-run)
 - [Saved Artifacts](#saved-artifacts)
 - [Tech Stack](#tech-stack)
+- [Roadmap](#roadmap)
 
 ---
 
 ## Project Summary
 
-Mindspace is a mental health text analysis and classification system. The core of the project is a **fully automated, adaptive ML pipeline** (`text-ml-pipeline.ipynb`) that takes raw CSV data through exploratory data analysis, feature engineering, model training, hyperparameter tuning, and evaluation — all in a single notebook.
+Mindspace is a mental health classification system with two independent ML pipelines and two production FastAPI inference servers:
 
-The pipeline is designed to be **generic and data-agnostic**: point it at any CSV, set a target column, and it handles everything automatically — from detecting data quality issues to selecting the best model.
+| Pipeline | Notebook | Model | Accuracy | Input |
+|----------|----------|-------|----------|-------|
+| **Text** | `text-ml-pipeline.ipynb` | LightGBM | 92.0% | 43 linguistic/semantic features |
+| **Voice** | `voice-pca-pipeline-guided.ipynb` | ExtraTrees | 99.3% | 13 PCA components from acoustic features |
 
-### What It Does
+Both pipelines are **fully automated and adaptive**: they handle EDA, feature engineering, model selection, hyperparameter tuning, and artifact saving without manual intervention.
 
-- **Classifies mental health profiles** into 7 categories based on linguistic, emotional, and semantic features extracted from text
-- **Detects and handles** outliers, missing values, duplicates, constant columns, ID-like columns, and target leakage — all automatically
-- **Prevents data leakage** — train/test split happens *before* any transformation; all transforms are fit on training data only
-- **Selects features** using a multi-method consensus (Random Forest importance, Mutual Information, statistical tests, VIF)
-- **Trains and compares** up to 8 ML algorithms with 5-fold cross-validation
-- **Tunes hyperparameters** using Optuna Bayesian optimization (TPE sampler)
-- **Utilizes GPU acceleration** (CUDA) for XGBoost and LightGBM when available, and all CPU cores for parallel training
+### What Each Pipeline Does
+
+**Text Pipeline**
+- Classifies mental health profiles into **7 categories** based on linguistic, emotional, and semantic features extracted from speech/text
+- Handles outliers, nulls, duplicates, leakage, encoding, feature selection, and scaling automatically
+- Prevents data leakage — train/test split happens *before* any transformation
+- Trains and compares up to 8 ML algorithms via 5-fold CV, tunes top 2 with Optuna
+
+**Voice Pipeline**
+- Classifies mental health profiles into **6 categories** based on PCA-reduced acoustic features
+- Input: 13 principal components extracted from OpenSMILE acoustic features
+- Same anti-leakage pipeline design as the text pipeline
+- Trained on acoustic/prosodic feature dataset with pre-computed PCA reduction
 
 ---
 
-## Dataset
+## Datasets
+
+### Text Dataset
 
 | Property | Value |
 |----------|-------|
@@ -49,7 +61,7 @@ The pipeline is designed to be **generic and data-agnostic**: point it at any CS
 | **Imbalance Ratio** | 2.54:1 |
 | **Train / Test Split** | 40,000 / 10,000 (80/20, stratified) |
 
-### Target Classes
+**Text Target Classes**
 
 | Class | Description |
 |-------|-------------|
@@ -61,50 +73,70 @@ The pipeline is designed to be **generic and data-agnostic**: point it at any CS
 | Stress | Stress-related speech patterns |
 | Suicidal_Tendency | Suicidal ideation markers |
 
-### Feature Categories
-
-The dataset contains features across multiple domains:
+**Text Feature Categories**
 
 - **Emotion ratios** — positive, negative, fear, sadness, anger, uncertainty word frequencies
-- **Linguistic features** — word count, unique word count, type-token ratio (TTR), avg sentence length, parse tree depth, POS ratios (noun, verb, adjective, adverb)
-- **Semantic features** — coherence score, overall sentiment score, self-reference density, rumination phrase frequency
-- **Topic distributions** — 5 topic weights (`topic_0` to `topic_4`) + topic shift frequency (entropy-based)
-- **Embeddings** — 32-dimensional sentence embeddings (`emb_0` to `emb_31`)
+- **Linguistic features** — word count, unique word count, TTR, avg sentence length, parse tree depth, POS ratios
+- **Semantic features** — coherence score, sentiment score, self-reference density, rumination phrase frequency
+- **Topic distributions** — 5 topic weights (`topic_0`–`topic_4`) + topic shift frequency
+- **Embeddings** — 32-dimensional sentence embeddings (`emb_0`–`emb_31`)
 - **Temporal focus** — past, present, future focus ratios
 - **Paralinguistic** — language model perplexity, filler word frequency, repetition rate
-- **Language** — multilingual indicator (`language`: english / hindi / marathi; one-hot encoded to `language_hindi`, `language_marathi`)
+- **Language** — multilingual indicator (English / Hindi / Marathi)
 
-The synthetic dataset is generated by `data-generation-script/new-with-normal.py` using controlled statistical distributions per mental health profile.
+### Voice Dataset
+
+| Property | Value |
+|----------|-------|
+| **File** | `data/features_pca_dataset.csv` |
+| **Rows** | ~3,000 |
+| **Columns** | 14 (13 PCA features + label) |
+| **Target** | `label` (6 classes) |
+| **Task** | Multi-class classification |
+| **Train / Test Split** | ~2,400 / ~600 (80/20, stratified) |
+
+**Voice Target Classes**
+
+| Class | Description |
+|-------|-------------|
+| Anxiety | Anxiety disorder voice patterns |
+| Bipolar | Bipolar / manic episode indicators |
+| Depression | Depressive speech markers |
+| Normal | Baseline / healthy voice patterns |
+| Stress | Stress-related voice patterns |
+| Suicidal | Suicidal ideation voice markers |
+
+**Voice Features**: 13 PCA components (PC1–PC13) derived from OpenSMILE acoustic features including MFCC coefficients, spectral features (entropy, rolloff, harmonicity, flux), pitch (F0), shimmer, jitter, voicing, RMS energy, zero-crossing rate, and HNR.
 
 ---
 
 ## Pipeline Architecture
 
-> **Visual diagrams** of every flow (end-to-end pipeline, anti-leakage, feature selection, model tuning, outlier handling, hardware utilization, saved artifacts) are in [`PIPELINE_FLOW_CLEAN.md`](PIPELINE_FLOW_CLEAN.md)
+> **Visual diagrams** of every flow (end-to-end pipeline, anti-leakage, feature selection, model tuning, outlier handling) are in [`project flow diagrams/PIPELINE_FLOW_CLEAN.md`](project%20flow%20diagrams/PIPELINE_FLOW_CLEAN.md)
 
-The notebook executes **18 sequential steps**, each with verbose logging and explanations:
+### Text Pipeline — 18 Steps
 
 | Step | Stage | What Happens |
 |------|-------|-------------|
-| **0** | Import & Hardware Detection | Load all libraries; detect GPU (CUDA) and CPU core count |
+| **0** | Import & Hardware Detection | Load libraries; detect GPU (CUDA) and CPU core count |
 | **1** | Configuration | Set CSV path, random seed (42), output directory |
 | **2** | Data Loading | Load CSV, preview shape, dtypes, head |
 | **3** | Column Overview | Print all columns for manual review |
-| **4** | Target Selection | User sets `TARGET_COLUMN = 'profile'` |
-| **5** | Data Profiling | Detect nulls, duplicates, constants, ID-like columns, leakage (drops `target` column — perfect 1-to-1 mapping with `profile`) |
+| **4** | Target Selection | Set `TARGET_COLUMN = 'profile'` |
+| **5** | Data Profiling | Detect nulls, duplicates, constants, ID-like columns, leakage |
 | **6** | Auto-Clean | Drop flagged columns, impute remaining nulls |
 | **7** | Target Analysis & Split | Analyze class balance → **train/test split (80/20, stratified)** before any transformation |
-| **8** | Outlier Handling | Detect outliers (IQR on train); test 4 smoothing strategies per column (winsorize, log1p, sqrt, yeo-johnson); pick lowest skew. **No rows removed.** Fit on train, apply to both. |
-| **9** | Encoding | Binary → Label Encoding; Low-cardinality → One-Hot (`drop_first=False`); High-cardinality → Frequency Encoding. All fit on train only. |
-| **10** | EDA & Visualization | Distribution plots, correlation heatmaps, Kruskal-Wallis H tests, Levene's W tests — all on training data only |
-| **11** | Feature Selection | Correlation filter (r ≥ 0.85) → VIF (threshold 10, top-25% importance protected) → RF importance + MI + stat tests consensus → prune MI < 0.01. **65 → 43 features.** |
-| **12** | Scaling | RobustScaler fit on train, transform both. Choice based on outlier presence. |
+| **8** | Outlier Handling | Test 4 smoothing strategies per column (winsorize, log1p, sqrt, yeo-johnson); pick lowest skew. Fit on train only. |
+| **9** | Encoding | Binary → Label Encoding; Low-cardinality → One-Hot; High-cardinality → Frequency Encoding. Fit on train only. |
+| **10** | EDA & Visualization | Distribution plots, correlation heatmaps, Kruskal-Wallis H tests, Levene's W tests — training data only |
+| **11** | Feature Selection | Correlation filter → VIF → RF importance + MI + stat tests consensus → prune MI < 0.01. **65 → 43 features.** |
+| **12** | Scaling | RobustScaler fit on train, transform both |
 | **13** | Model Shortlisting | Dynamically select models based on dataset size and dimensionality |
-| **14** | Training & CV | 5-fold stratified CV, scored by **f1_macro**. Models needing `sample_weight` use manual parallel CV. |
+| **14** | Training & CV | 5-fold stratified CV, scored by `f1_macro` |
 | **15** | Top-K Selection | Pick top 2 models for tuning |
 | **16** | Hyperparameter Tuning | Optuna TPE, 15 trials, 3-min timeout, 5-fold CV per model |
 | **17** | Final Evaluation | Full test-set metrics, confusion matrix, runner-up comparison |
-| **18** | Save Artifacts | Model, scaler, encoder, transformers, feature names, metadata — all persisted |
+| **18** | Save Artifacts | Model, scaler, encoder, transformers, feature names, metadata |
 
 ### Anti-Leakage Design
 
@@ -114,41 +146,32 @@ Every transformation (outlier handling, encoding, scaling, feature selection) is
 
 ## Algorithms & Models
 
-### Candidate Models (Step 13)
+### Candidate Models
 
-The pipeline dynamically selects which models to include based on dataset properties:
+| Model | Type | GPU Support |
+|-------|------|-------------|
+| **Random Forest** | Ensemble (Bagging) | CPU (`n_jobs=-1`) |
+| **LightGBM** | Gradient Boosting | `device='gpu'` when CUDA available |
+| **Extra Trees** | Ensemble (Bagging) | CPU (`n_jobs=-1`) |
+| **XGBoost** | Gradient Boosting | `device='cuda'` when available |
+| **HistGradientBoosting** | Histogram-based GB | CPU (native multi-core) |
+| **Logistic Regression** | Linear | CPU |
+| **SVM (RBF)** | Kernel | CPU |
+| **KNN** | Instance-based | CPU |
 
-| Model | Type | Conditions | GPU Support |
-|-------|------|-----------|-------------|
-| **Random Forest** | Ensemble (Bagging) | Always included | CPU (`n_jobs=-1`) |
-| **LightGBM** | Gradient Boosting | Always included | `device='gpu'` when CUDA available |
-| **Extra Trees** | Ensemble (Bagging) | Always included | CPU (`n_jobs=-1`) |
-| **XGBoost** | Gradient Boosting | n_samples ≤ 100K | `device='cuda'` when available |
-| **HistGradientBoosting** | Histogram-based GB | Always included | CPU (native multi-core) |
-| **Logistic Regression** | Linear | n_features < 100 AND n_samples ≤ 50K | CPU |
-| **SVM (RBF)** | Kernel | n_features < 50 AND n_samples ≤ 20K | CPU |
-| **KNN** | Instance-based | n_samples ≤ 50K | CPU |
-
-### Class Imbalance Handling
-
-- Models with `class_weight` parameter → `class_weight='balanced'`
-- XGBoost → `sample_weight` computed from inverse class frequencies, passed during `.fit()`
-
-### Hyperparameter Tuning (Step 16)
+### Hyperparameter Tuning
 
 - **Optimizer**: Optuna with TPE (Tree-structured Parzen Estimator) sampler
 - **Trials**: 15 per model
-- **Timeout**: 180 seconds (3 min) per model
-- **CV**: 5-fold stratified, consistent with training
+- **Timeout**: 180 seconds per model
+- **CV**: 5-fold stratified
 - **Scoring**: `f1_macro`
-
-Tuned hyperparameters vary per model (e.g., `n_estimators`, `max_depth`, `learning_rate`, `num_leaves`, `subsample`, `colsample_bytree`, regularization terms).
 
 ---
 
 ## Key Results
 
-### Best Model: **LightGBM**
+### Text Model — LightGBM
 
 | Metric | Score |
 |--------|-------|
@@ -158,7 +181,9 @@ Tuned hyperparameters vary per model (e.g., `n_estimators`, `max_depth`, `learni
 | **Precision (macro)** | 0.917 |
 | **Recall (macro)** | 0.920 |
 
-### Tuned Hyperparameters
+Training: 40,000 samples | Test: 10,000 samples | Features: 43 (selected from 65)
+
+**Tuned Hyperparameters**
 
 | Parameter | Value |
 |-----------|-------|
@@ -172,11 +197,29 @@ Tuned hyperparameters vary per model (e.g., `n_estimators`, `max_depth`, `learni
 | `reg_alpha` | 0.625 |
 | `reg_lambda` | 0.003 |
 
-### Feature Selection Results
+**Top predictors**: `overall_sentiment_score`, `semantic_coherence_score`, `self_reference_density`, `future_focus_ratio`, `positive_emotion_ratio`, `fear_word_frequency`
 
-- **Starting features**: 65 (after leakage column dropped)
-- **After selection**: 43 features retained
-- **Top predictors**: `overall_sentiment_score`, `semantic_coherence_score`, `self_reference_density`, `future_focus_ratio`, `positive_emotion_ratio`, `fear_word_frequency`
+### Voice Model — ExtraTrees
+
+| Metric | Score |
+|--------|-------|
+| **Accuracy** | 0.993 |
+| **F1 (macro)** | 0.993 |
+| **F1 (weighted)** | 0.993 |
+| **Precision (macro)** | 0.993 |
+| **Recall (macro)** | 0.993 |
+
+Training: ~2,400 samples | Test: ~600 samples | Features: 13 PCA components (PC1–PC13)
+
+**Tuned Hyperparameters**
+
+| Parameter | Value |
+|-----------|-------|
+| `n_estimators` | 400 |
+| `max_depth` | 26 |
+| `min_samples_split` | 2 |
+| `min_samples_leaf` | 1 |
+| `max_features` | sqrt |
 
 ---
 
@@ -184,40 +227,51 @@ Tuned hyperparameters vary per model (e.g., `n_estimators`, `max_depth`, `learni
 
 ```
 Mindspace-voice-agent/
-├── text-ml-pipeline.ipynb           # Main text ML pipeline (18 steps, 39 cells)
-├── PIPELINE_FLOW_CLEAN.md           # Mermaid diagrams of every pipeline flow
-├── requirements.txt                 # Python dependencies
+├── text-ml-pipeline.ipynb               # Text ML pipeline (18 steps, 39 cells)
+├── voice-pca-pipeline-guided.ipynb      # Voice/PCA ML pipeline
+├── requirements.txt                     # Python dependencies
+│
 ├── data/
-│   └── mental_health_synthetic_dataset_with_normal.csv   # Dataset (50K rows, 66 cols)
-├── data-generation-script/
-│   └── new-with-normal.py           # Synthetic data generation script
-├── deployment/                      # FastAPI inference servers
-│   ├── api_text_to_sentiment.py     # Text API — LightGBM, 43 features, 7 classes (port 9000)
-│   ├── api_voice_to_sentiment.py    # Voice API — XGBoost, 1351 features, 6 classes (port 9100)
-│   ├── .env                         # API_KEY (never commit)
-│   ├── requirements.txt             # Deployment-only dependencies
-│   └── README.md                    # Deployment documentation
+│   └── features_pca_dataset.csv         # Voice PCA dataset (~3K rows, 13 PCA + label)
+│
+├── demo-api-input-data-sample/
+│   └── voice_normal_sample_1.json       # Sample voice API request (13 PCA features)
+│
+├── Both_API_combined/                   # FastAPI inference servers
+│   ├── api_text_to_sentiment.py         # Text API — LightGBM, 43 features, 7 classes (port 9000)
+│   ├── api_voice_to_sentiment.py        # Voice API — ExtraTrees, 13 PCA features, 6 classes (port 9100)
+│   ├── .env                             # API_KEY (never commit)
+│   ├── .env.example                     # Template for .env
+│   ├── requirements.txt                 # Deployment-only dependencies
+│   └── README.md                        # API deployment documentation
+│
+├── project flow diagrams/               # Visual documentation
+│   ├── PIPELINE_FLOW_CLEAN.md           # Mermaid diagrams of all pipeline flows
+│   └── project_flow_diagram.md          # High-level project overview diagram
+│
 ├── text_ml_pipeline_output/
-│   ├── LightGBM_13032026_110356/    # Text/full-pipeline artifacts
-│   │   ├── best_model.joblib        # Trained LightGBM model
-│   │   ├── scaler.joblib            # RobustScaler (fit on train)
-│   │   ├── label_encoder.joblib     # Target label encoder
-│   │   ├── encoding_artifacts.joblib # Categorical encoding mappings
-│   │   ├── outlier_transformers.joblib # Outlier smoothing transformers
-│   │   ├── feature_names.json       # 43 selected feature names
-│   │   ├── model_metadata.json      # Metrics, params, class names
-│   │   └── pipeline_state.json      # Full pipeline run state
+│   └── LightGBM_13032026_110356/        # Text model artifacts
+│       ├── best_model.joblib            # Trained LightGBM classifier (7.7 MB)
+│       ├── scaler.joblib                # RobustScaler (fit on 40K train samples)
+│       ├── label_encoder.joblib         # Target label encoder
+│       ├── encoding_artifacts.joblib    # Categorical encoding maps
+│       ├── outlier_transformers.joblib  # Per-column outlier smoothing transforms
+│       ├── feature_names.json           # 43 selected feature names
+│       ├── model_metadata.json          # Metrics, params, class names
+│       └── pipeline_state.json          # Full pipeline execution state
+│
 ├── voice_ml_pipeline_output/
-│   └── ExtraTrees_25042026_124726/  # Voice/PCA pipeline artifacts
-│       ├── best_model.joblib        # Trained voice model
-│       ├── scaler.joblib            # RobustScaler (fit on train)
-│       ├── label_encoder.joblib     # Target label encoder
-│       ├── encoding_artifacts.joblib # Categorical encoding mappings
-│       ├── outlier_transformers.joblib # Outlier smoothing transformers
-│       ├── feature_names.json       # Ordered list of saved voice features
-│       ├── model_metadata.json      # Metrics, params, class names
-│       └── pipeline_state.json      # Full pipeline run state
-└── myenv/                           # Python virtual environment
+│   └── ExtraTrees_25042026_142358/      # Voice model artifacts
+│       ├── best_model.joblib            # Trained ExtraTrees classifier (11 MB)
+│       ├── scaler.joblib                # RobustScaler (fit on train)
+│       ├── label_encoder.joblib         # Target label encoder
+│       ├── encoding_artifacts.joblib    # Categorical encoding maps
+│       ├── outlier_transformers.joblib  # Per-column outlier smoothing transforms
+│       ├── feature_names.json           # [PC1 … PC13]
+│       ├── model_metadata.json          # Metrics, params, class names
+│       └── pipeline_state.json          # Full pipeline execution state
+│
+└── myenv/                               # Python virtual environment
 ```
 
 ---
@@ -249,54 +303,57 @@ pip install -r requirements.txt
 ### Optional: GPU Support
 
 ```bash
-# Install PyTorch with CUDA (for GPU detection and acceleration)
 pip install torch --index-url https://download.pytorch.org/whl/cu118
 ```
 
-When a CUDA-capable GPU is detected, XGBoost uses `device='cuda'` and LightGBM uses `device='gpu'` automatically. Without GPU, everything runs on CPU with full multi-core parallelism.
+When a CUDA-capable GPU is detected, XGBoost uses `device='cuda'` and LightGBM uses `device='gpu'` automatically.
 
 ---
 
 ## How to Run
 
-1. **Open** `text-ml-pipeline.ipynb` in Jupyter or VS Code
-2. **Set your kernel** to the `myenv` virtual environment
-3. **Run all cells** sequentially (Ctrl+Shift+Enter in VS Code)
-4. The pipeline will:
-   - Auto-detect your hardware (GPU/CPU)
-   - Load and profile the dataset
-   - Clean, transform, and select features
-   - Train 8 models with cross-validation
-   - Tune the top 2 with Optuna
-   - Evaluate on the test set
-   - Save all artifacts to the configured output root (`text_ml_pipeline_output/` for the full pipeline)
+### Text Pipeline
 
-### Using a Different Dataset
+1. Open `text-ml-pipeline.ipynb` in Jupyter or VS Code
+2. Set kernel to the `myenv` virtual environment
+3. Run all cells sequentially
 
-To use a different CSV file:
+### Voice Pipeline
 
-1. In **Step 1** (Configuration cell), change `FILE_PATH` to your CSV path
-2. In **Step 4** (Target Selection cell), change `TARGET_COLUMN` to your target column name
-3. Run all cells — the pipeline adapts automatically to any dataset
+1. Open `voice-pca-pipeline-guided.ipynb` in Jupyter or VS Code
+2. Set kernel to the `myenv` virtual environment
+3. Run all cells sequentially
+
+### API Servers
+
+```bash
+# From project root:
+
+# Text API (port 9000)
+uvicorn Both_API_combined.api_text_to_sentiment:app --reload --port 9000
+
+# Voice API (port 9100)
+uvicorn Both_API_combined.api_voice_to_sentiment:app --reload --port 9100
+```
+
+Swagger docs: `http://localhost:9000/docs` and `http://localhost:9100/docs`
 
 ---
 
 ## Saved Artifacts
 
-Each run creates a unique output folder (`text_ml_pipeline_output/{Model}_{ddmmyyyy}_{hhmmss}/` for the full pipeline) containing:
+Each pipeline run creates a timestamped folder (`{Model}_{ddmmyyyy}_{hhmmss}/`) containing:
 
 | File | Description |
 |------|-------------|
 | `best_model.joblib` | Trained model, ready for inference |
-| `scaler.joblib` | Feature scaler (fit on training data) |
-| `label_encoder.joblib` | Target label encoder (class name ↔ integer mapping) |
-| `encoding_artifacts.joblib` | Categorical encoding mappings (binary, one-hot, frequency) |
+| `scaler.joblib` | Feature scaler (fit on training data only) |
+| `label_encoder.joblib` | Target label encoder (class name ↔ integer) |
+| `encoding_artifacts.joblib` | Categorical encoding mappings |
 | `outlier_transformers.joblib` | Per-column outlier smoothing transformers |
-| `feature_names.json` | Ordered list of 43 selected feature names |
+| `feature_names.json` | Ordered list of selected feature names |
 | `model_metadata.json` | Best model name, params, all test metrics, class names |
 | `pipeline_state.json` | Complete pipeline state (every step's decisions and stats) |
-
-These artifacts are everything needed to **reproduce the exact preprocessing and inference** on new data.
 
 ---
 
@@ -307,24 +364,20 @@ These artifacts are everything needed to **reproduce the exact preprocessing and
 | **Data** | pandas, numpy, scipy |
 | **ML** | scikit-learn, XGBoost, LightGBM |
 | **Tuning** | Optuna (TPE Bayesian optimization) |
-| **Visualization** | matplotlib, seaborn |
+| **Visualization** | matplotlib, seaborn, plotly |
 | **Statistics** | scipy.stats (Kruskal-Wallis, Levene's, Spearman), statsmodels (VIF) |
 | **GPU** | PyTorch (CUDA detection), XGBoost CUDA, LightGBM GPU |
-| **Parallelism** | joblib (Parallel/delayed), scikit-learn `n_jobs=-1` |
-| **Persistence** | joblib (model serialization), JSON (metadata) |
-
----
-
-*Built with an automated, adaptive ML pipeline — every decision is data-driven, every transform is leakage-free, and every artifact is saved for reproducibility.*
+| **API** | FastAPI, uvicorn, pydantic |
+| **Persistence** | joblib, JSON |
 
 ---
 
 ## Roadmap
 
-- [x] Synthetic dataset generation (multilingual: English, Hindi, Marathi)
-- [x] End-to-end ML pipeline (18 steps, anti-leakage)
-- [x] Model training & hyperparameter tuning — LightGBM (92% accuracy, text features)
-- [x] Model training & hyperparameter tuning — XGBoost (60.3% accuracy, voice/acoustic features)
-- [x] Text API — FastAPI server for LightGBM text-to-sentiment (43 features, 7 classes, port 9000)
-- [x] Voice API — FastAPI server for XGBoost voice-to-sentiment (1,351 features, 6 classes, port 9100)
-- [ ] Voice agent app — real-time voice interface for mental health profiling
+- [x] Synthetic text dataset generation (multilingual: English, Hindi, Marathi)
+- [x] End-to-end text ML pipeline (18 steps, anti-leakage)
+- [x] Text model training & tuning — LightGBM (92% accuracy, 43 features, 7 classes)
+- [x] Voice PCA pipeline — ExtraTrees (99.3% accuracy, 13 PCA features, 6 classes)
+- [x] Text API — FastAPI server, LightGBM, port 9000
+- [x] Voice API — FastAPI server, ExtraTrees, port 9100
+- [ ] Real-time voice agent — record audio → extract features → classify live

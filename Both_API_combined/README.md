@@ -1,17 +1,15 @@
-# Mindspace Voice Agent — Deployment
+# Mindspace — API Deployment
 
-Two FastAPI inference servers for mental health classification — one for text features, one for voice/acoustic features.
+Two FastAPI inference servers for mental health classification — one for text/linguistic features, one for voice/acoustic PCA features.
 
 ---
 
 ## What This Does
 
-Serves two trained ML models via REST APIs:
-
 | API | Model | Input | Output | Accuracy |
 |-----|-------|-------|--------|----------|
-| **Text API** (`api_text_to_sentiment.py`) | LightGBM | 43 linguistic/text features | 7-class prediction | 92.0% |
-| **Voice API** (`api_voice_to_sentiment.py`) | XGBoost | 1,351 OpenSMILE acoustic features | 6-class prediction | 60.3% |
+| **Text API** (`api_text_to_sentiment.py`) | LightGBM | 43 linguistic/semantic features | 7-class prediction | 92.0% |
+| **Voice API** (`api_voice_to_sentiment.py`) | ExtraTrees | 13 PCA acoustic components (PC1–PC13) | 6-class prediction | 99.3% |
 
 Both APIs accept pre-extracted features, run the full preprocessing pipeline internally (outlier smoothing → scaling), and return a prediction with per-class probabilities.
 
@@ -20,31 +18,32 @@ Both APIs accept pre-extracted features, run the full preprocessing pipeline int
 ## Project Structure
 
 ```
-deployment/
-├── api_text_to_sentiment.py    # Text API — LightGBM, 43 features, 7 classes
-├── api_voice_to_sentiment.py   # Voice API — XGBoost, 1351 features, 6 classes
+Both_API_combined/
+├── api_text_to_sentiment.py    # Text API — LightGBM, 43 features, 7 classes (port 9000)
+├── api_voice_to_sentiment.py   # Voice API — ExtraTrees, 13 PCA features, 6 classes (port 9100)
 ├── .env                        # API_KEY (never commit to git)
-├── requirements.txt            # Pinned dependencies for deployment
+├── .env.example                # Template for .env setup
+├── requirements.txt            # Pinned deployment dependencies
 └── README.md                   # This file
 
 text_ml_pipeline_output/
-├── LightGBM_13032026_110356/   # Text model artifacts
-│   ├── best_model.joblib           # Trained LightGBM classifier
-│   ├── scaler.joblib               # RobustScaler (fit on 40K training rows)
-│   ├── label_encoder.joblib        # Integer → class name decoder
-│   ├── encoding_artifacts.joblib   # Categorical encoding maps
-│   ├── outlier_transformers.joblib # Per-column outlier smoothing transforms
-│   ├── feature_names.json          # Ordered list of 43 selected features
-│   └── model_metadata.json         # Hyperparams, test metrics, class names
-│
+└── LightGBM_13032026_110356/
+    ├── best_model.joblib           # Trained LightGBM classifier
+    ├── scaler.joblib               # RobustScaler (fit on 40K training rows)
+    ├── label_encoder.joblib        # Integer → class name decoder
+    ├── encoding_artifacts.joblib   # Categorical encoding maps
+    ├── outlier_transformers.joblib # Per-column outlier smoothing transforms
+    ├── feature_names.json          # 43 selected feature names
+    └── model_metadata.json         # Hyperparams, test metrics, class names
+
 voice_ml_pipeline_output/
-└── ExtraTrees_25042026_124726/ # Voice model artifacts
-  ├── best_model.joblib           # Trained voice classifier
+└── ExtraTrees_25042026_142358/
+    ├── best_model.joblib           # Trained ExtraTrees classifier
     ├── scaler.joblib               # RobustScaler (fit on training rows)
     ├── label_encoder.joblib        # Integer → class name decoder
     ├── encoding_artifacts.joblib   # Categorical encoding maps
     ├── outlier_transformers.joblib # Per-column outlier smoothing transforms
-  ├── feature_names.json          # Ordered list of saved voice features
+    ├── feature_names.json          # [PC1 … PC13]
     └── model_metadata.json         # Hyperparams, test metrics, class names
 ```
 
@@ -57,45 +56,9 @@ Both APIs share the same 4 endpoints:
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
 | `GET` | `/` | No | Service info — model name, accuracy, output classes |
-| `GET` | `/health` | No | Health check — confirms all 7 artifacts are loaded |
+| `GET` | `/health` | No | Health check — confirms all artifacts are loaded |
 | `POST` | `/predict` | `X-API-Key` | Main prediction — returns label + confidence + all probabilities |
 | `GET` | `/model/info` | `X-API-Key` | Full model metadata — hyperparams, CV score, test metrics |
-
----
-
-## Running Locally
-
-**Important:** Always run from the **project root** (`Mindspace-voice-agent/`), not from inside `deployment/`.
-
-### Text API (LightGBM — port 9000)
-
-```bash
-# From project root:
-uvicorn deployment.api_text_to_sentiment:app --reload --port 9000
-```
-
-- Server: `http://localhost:9000`
-- Swagger docs: `http://localhost:9000/docs`
-
-### Voice API (XGBoost — port 9100)
-
-```bash
-# From project root:
-uvicorn deployment.api_voice_to_sentiment:app --reload --port 9100
-```
-
-- Server: `http://localhost:9100`
-- Swagger docs: `http://localhost:9100/docs`
-
-### Running from inside `deployment/` folder
-
-```bash
-cd deployment
-uvicorn api_text_to_sentiment:app --reload --port 9000
-uvicorn api_voice_to_sentiment:app --reload --port 9100
-```
-
-> **Note:** On Windows, some ports (e.g. 9001) may be reserved by Hyper-V. If you get `[Errno 13] Permission denied`, pick a different port. Run `netsh interface ipv4 show excludedportrange protocol=tcp` to see reserved ports.
 
 ---
 
@@ -103,7 +66,7 @@ uvicorn api_voice_to_sentiment:app --reload --port 9100
 
 Both APIs require an `X-API-Key` header on protected routes (`/predict`, `/model/info`).
 
-The key is loaded from `deployment/.env`:
+Copy `.env.example` to `.env` and set your key:
 
 ```
 API_KEY=your-secret-key-here
@@ -117,9 +80,41 @@ curl -H "X-API-Key: YOUR_KEY" http://localhost:9000/model/info
 
 ---
 
+## Running Locally
+
+**Always run from the project root** (`Mindspace-voice-agent/`), not from inside `Both_API_combined/`.
+
+### Text API — port 9000
+
+```bash
+uvicorn Both_API_combined.api_text_to_sentiment:app --reload --port 9000
+```
+
+- Swagger docs: `http://localhost:9000/docs`
+
+### Voice API — port 9100
+
+```bash
+uvicorn Both_API_combined.api_voice_to_sentiment:app --reload --port 9100
+```
+
+- Swagger docs: `http://localhost:9100/docs`
+
+### Running from inside `Both_API_combined/`
+
+```bash
+cd Both_API_combined
+uvicorn api_text_to_sentiment:app --reload --port 9000
+uvicorn api_voice_to_sentiment:app --reload --port 9100
+```
+
+> **Windows note:** Some ports may be reserved by Hyper-V. If you get `[Errno 13] Permission denied`, pick a different port. Run `netsh interface ipv4 show excludedportrange protocol=tcp` to check reserved ports.
+
+---
+
 ## Text API — Input Format
 
-`POST /predict` accepts JSON with **43 float fields** (flat body, no wrapper):
+`POST /predict` accepts a flat JSON object with **43 float fields**:
 
 ### Linguistic / Semantic Scores (19 fields)
 ```
@@ -146,8 +141,8 @@ emb_14, emb_15, emb_21, emb_22, emb_25, emb_28, emb_29, emb_30
 ```
 language_hindi, language_marathi
 ```
-> `language_hindi=0, language_marathi=0` → English
-> `language_hindi=1, language_marathi=0` → Hindi
+> `language_hindi=0, language_marathi=0` → English  
+> `language_hindi=1, language_marathi=0` → Hindi  
 > `language_hindi=0, language_marathi=1` → Marathi
 
 ### Example Request (Text API)
@@ -210,38 +205,48 @@ curl -X POST http://localhost:9000/predict \
 
 ## Voice API — Input Format
 
-`POST /predict` accepts JSON with a **`features` key** containing a flat dict of all 1,351 OpenSMILE acoustic feature values:
+`POST /predict` accepts JSON with a **`features` key** containing the 13 PCA component values:
 
 ```json
 {
   "features": {
-    "pcm_fftMag_fband250-650_sma_de_pctlrange0-1": 0.0042,
-    "mfcc_sma_de[11]_meanPeakDist": 12.34,
-    "...": "... (all 1,351 features required)"
+    "PC1": 0.42,
+    "PC2": -1.13,
+    "PC3": 0.87,
+    "PC4": -0.55,
+    "PC5": 0.21,
+    "PC6": 1.04,
+    "PC7": -0.33,
+    "PC8": 0.76,
+    "PC9": -0.19,
+    "PC10": 0.61,
+    "PC11": -0.88,
+    "PC12": 0.44,
+    "PC13": -0.07
   }
 }
 ```
 
-The full list of required feature names can be retrieved via `GET /model/info` under the `feature_names` key.
+The PCA components (PC1–PC13) are derived from OpenSMILE acoustic features including MFCC coefficients, spectral features (entropy, rolloff, harmonicity, flux), pitch (F0), shimmer, jitter, voicing, RMS energy, zero-crossing rate, and HNR. Apply the same PCA transformation used during training before calling this API.
 
-Feature categories include: MFCC coefficients, spectral features (entropy, rolloff, harmonicity, kurtosis, slope, flux, variance), pitch (F0), shimmer, jitter, voicing, auditory spectrum (audSpec), RMS energy, zero-crossing rate, psychoacoustic sharpness, HNR, and their delta/statistical functionals.
+A sample request payload is available in `demo-api-input-data-sample/voice_normal_sample_1.json`.
 
 ### Example Response (Voice API)
 
 ```json
 {
-  "prediction": "depression",
-  "confidence": 0.6521,
+  "prediction": "Normal",
+  "confidence": 0.9871,
   "probabilities": {
-    "anxiety": 0.0832,
-    "bipolar": 0.0411,
-    "depression": 0.6521,
-    "normal": 0.0234,
-    "stress": 0.1147,
-    "suicidal": 0.0855
+    "Anxiety": 0.0021,
+    "Bipolar": 0.0034,
+    "Depression": 0.0041,
+    "Normal": 0.9871,
+    "Stress": 0.0019,
+    "Suicidal": 0.0014
   },
-  "model": "XGBoost",
-  "accuracy": 0.6033
+  "model": "ExtraTrees",
+  "accuracy": 0.993
 }
 ```
 
@@ -290,12 +295,12 @@ Raw JSON input
 
 | Class | Description |
 |-------|-------------|
-| `anxiety` | Anxiety disorder indicators |
-| `bipolar` | Bipolar / manic episode indicators |
-| `depression` | Depressive episode indicators |
-| `normal` | No significant mental health concerns |
-| `stress` | Stress-related indicators |
-| `suicidal` | Suicidal ideation indicators |
+| `Anxiety` | Anxiety disorder indicators |
+| `Bipolar` | Bipolar / manic episode indicators |
+| `Depression` | Depressive episode indicators |
+| `Normal` | No significant mental health concerns |
+| `Stress` | Stress-related indicators |
+| `Suicidal` | Suicidal ideation indicators |
 
 ---
 
@@ -311,36 +316,38 @@ Raw JSON input
 | Precision Macro | 0.917 |
 | Recall Macro | 0.920 |
 
-Trained on: 40,000 samples | Tested on: 10,000 samples
+Trained on: 40,000 samples | Tested on: 10,000 samples | Features: 43
 
-### Voice API — XGBoost
+### Voice API — ExtraTrees
 
 | Metric | Score |
 |--------|-------|
-| Accuracy | 0.603 |
-| F1 Macro | 0.563 |
-| F1 Weighted | 0.550 |
-| Precision Macro | 0.633 |
-| Recall Macro | 0.619 |
+| Accuracy | 0.993 |
+| F1 Macro | 0.993 |
+| F1 Weighted | 0.993 |
+| Precision Macro | 0.993 |
+| Recall Macro | 0.993 |
 
-Trained on: 2,400 samples | Tested on: 600 samples
+Trained on: ~2,400 samples | Tested on: ~600 samples | Features: 13 PCA components
 
 ---
 
-## AWS EC2 Deployment (next steps)
+## AWS EC2 Deployment
 
 1. Launch EC2 instance (Ubuntu 22.04, t3.medium or above)
-2. Install Python 3.10+, clone repo, create venv, install `deployment/requirements.txt`
-3. Copy `text_ml_pipeline_output/` and/or `voice_ml_pipeline_output/` to EC2 (or use S3)
-4. Run with gunicorn + uvicorn workers:
+2. Install Python 3.10+, clone repo, create venv, install `Both_API_combined/requirements.txt`
+3. Copy `text_ml_pipeline_output/` and `voice_ml_pipeline_output/` to EC2 (or use S3)
+4. Copy `.env` with your `API_KEY`
+5. Run with gunicorn + uvicorn workers:
    ```bash
    # Text API
-   gunicorn deployment.api_text_to_sentiment:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:9000
+   gunicorn Both_API_combined.api_text_to_sentiment:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:9000
+
    # Voice API
-   gunicorn deployment.api_voice_to_sentiment:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:9100
+   gunicorn Both_API_combined.api_voice_to_sentiment:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:9100
    ```
-5. Configure security group to allow inbound TCP on ports 9000 and 9100
-6. (Optional) Put Nginx in front as reverse proxy on port 80/443
+6. Configure security group to allow inbound TCP on ports 9000 and 9100
+7. (Optional) Put Nginx in front as reverse proxy on port 80/443
 
 ---
 
@@ -348,5 +355,7 @@ Trained on: 2,400 samples | Tested on: 600 samples
 
 | Date | Change |
 |------|--------|
-| 2026-03-18 | Text API created (`api_text_to_sentiment.py`) — LightGBM, 43 features, 7 classes, all 4 endpoints, tested on port 9000 |
-| 2026-03-28 | Voice API created (`api_voice_to_sentiment.py`) — XGBoost, 1,351 acoustic features, 6 classes, all 4 endpoints, tested on port 9100 |
+| 2026-03-18 | Text API created — LightGBM, 43 features, 7 classes, port 9000 |
+| 2026-03-28 | Voice API created — XGBoost, 1,351 acoustic features, 6 classes, port 9100 |
+| 2026-04-25 | Voice model retrained — switched to ExtraTrees on 13 PCA components; accuracy improved from 60.3% → 99.3% |
+| 2026-05-05 | Documentation updated to reflect current models and folder structure (`Both_API_combined/`) |
