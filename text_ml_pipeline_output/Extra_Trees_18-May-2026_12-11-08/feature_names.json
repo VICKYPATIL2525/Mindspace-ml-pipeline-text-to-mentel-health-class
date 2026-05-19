@@ -1,0 +1,22 @@
+[
+  "unique_word_count",
+  "moving_average_ttr",
+  "adverb_ratio",
+  "modal_verb_frequency",
+  "negative_frequency",
+  "overall_sentiment_score",
+  "fear_word_frequency",
+  "sadness_word_frequency",
+  "anger_word_frequency",
+  "surprise_frequency",
+  "max_negative_emotion",
+  "negative_emotion_spike_count",
+  "sentiment_trajectory_slope",
+  "emotional_volatility_score",
+  "catastrophizing_indicators",
+  "external_locus_of_control_score",
+  "self_reference_density",
+  "past_focused_word_ratio",
+  "future_focused_word_ratio",
+  "filler_word_frequency"
+]
