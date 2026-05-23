@@ -1,0 +1,561 @@
+{
+  "config": {
+    "csv_file": "data\\features_pca.csv",
+    "random_seed": 42,
+    "test_size": 0.2,
+    "cv_folds": 5,
+    "top_k_models": 2,
+    "optuna_trials": 30,
+    "optuna_timeout": 300,
+    "outlier_threshold_pct": 0.3,
+    "feature_drop_bottom_pct": 0.02,
+    "leakage_corr_threshold": 0.999,
+    "near_zero_std_threshold": 1e-06,
+    "hardware": {
+      "n_cores": 8,
+      "n_jobs": 7,
+      "gpu_available": true,
+      "gpu_type": "cuda"
+    }
+  },
+  "data_loading": {
+    "n_rows": 10002,
+    "n_cols": 25,
+    "memory_mb": 2.48,
+    "columns": [
+      "label",
+      "PC1",
+      "PC2",
+      "PC3",
+      "PC4",
+      "PC5",
+      "PC6",
+      "PC7",
+      "PC8",
+      "PC9",
+      "PC10",
+      "PC11",
+      "PC12",
+      "PC13",
+      "PC14",
+      "PC15",
+      "PC16",
+      "PC17",
+      "PC18",
+      "PC19",
+      "PC20",
+      "PC21",
+      "PC22",
+      "PC23",
+      "PC24"
+    ]
+  },
+  "column_overview": {
+    "total_columns": 25,
+    "pc_columns_count": 24,
+    "other_columns": [
+      "label"
+    ]
+  },
+  "manual_setup": {
+    "target_column": "label",
+    "cols_requested": [],
+    "n_dropped": 0,
+    "shape_after": [
+      10002,
+      25
+    ]
+  },
+  "profiling": {
+    "n_cols_total": 25,
+    "null_pct_total": 0.0,
+    "duplicate_rows": 81,
+    "constant_cols": [],
+    "low_var_cols": [],
+    "non_numeric_cols": [
+      "label"
+    ],
+    "cols_flagged_for_drop": []
+  },
+  "target_selection": {
+    "target_column": "label",
+    "n_classes": 6,
+    "class_names": [
+      "Anxiety",
+      "Bipolar",
+      "Depression",
+      "Normal",
+      "Stress",
+      "Suicidal"
+    ],
+    "null_rows_dropped": 0,
+    "selected_in_step": "3.5",
+    "validated_in_step": "5"
+  },
+  "auto_clean": {
+    "rows_after_dedup": 9921,
+    "cols_auto_dropped": [],
+    "non_numeric_dropped": [],
+    "leakage_dropped": [],
+    "nulls_imputed": 0,
+    "feature_cols_out": 24
+  },
+  "train_test_split": {
+    "n_train": 7936,
+    "n_test": 1985,
+    "n_features_in": 24,
+    "imbalance_ratio": 1.035,
+    "imbalance_strategy": "none",
+    "class_names": [
+      "Anxiety",
+      "Bipolar",
+      "Depression",
+      "Normal",
+      "Stress",
+      "Suicidal"
+    ]
+  },
+  "outlier_smoothing": {
+    "threshold_pct": 0.3,
+    "cols_treated": 24,
+    "strategy_counts": {
+      "winsorize": 2,
+      "log1p": 0,
+      "sqrt": 0,
+      "yeo-johnson": 22,
+      "none": 0
+    }
+  },
+  "feature_selection": {
+    "n_features_in": 24,
+    "n_features_out": 23,
+    "n_dropped": 1,
+    "dropped_features": [
+      "PC17"
+    ],
+    "bottom_pct_threshold": 0.02,
+    "top_10_rf_features": [
+      "PC1",
+      "PC2",
+      "PC6",
+      "PC3",
+      "PC5",
+      "PC4",
+      "PC7",
+      "PC13",
+      "PC12",
+      "PC11"
+    ]
+  },
+  "scaling": {
+    "scaler": "RobustScaler",
+    "fit_on": "train_only",
+    "post_scale_mean_train": 0.005463,
+    "post_scale_std_train": 0.81723
+  },
+  "model_shortlisting": {
+    "n_samples_train": 7936,
+    "n_features": 23,
+    "models_selected": [
+      "RandomForest",
+      "ExtraTrees",
+      "LightGBM",
+      "HistGradBoost",
+      "XGBoost",
+      "LogisticRegression",
+      "SVM_RBF",
+      "KNN"
+    ],
+    "models_skipped": [],
+    "reasons": {
+      "RandomForest": "Always included -- robust ensemble, handles high dims well",
+      "ExtraTrees": "Always included -- faster than RF, good on PCA data",
+      "LightGBM": "Always included -- fast GBDT, GPU=True",
+      "HistGradBoost": "Always included -- fast on large data",
+      "XGBoost": "Included (n_samples=7,936 <= 100,000 or GPU available)",
+      "LogisticRegression": "Included (n_samples=7,936 <= 50,000 and features < 100)",
+      "SVM_RBF": "Included (n_samples <= 20,000 and features < 50)",
+      "KNN": "Included (n_samples=7,936 <= 50,000)"
+    }
+  },
+  "cv_training": {
+    "cv_folds": 5,
+    "scoring": "f1_macro",
+    "elapsed_seconds": 54.3,
+    "results": {
+      "RandomForest": {
+        "mean_f1_macro": 0.9924408694241382,
+        "std_f1_macro": 0.002250212257371593
+      },
+      "ExtraTrees": {
+        "mean_f1_macro": 0.9959736847110066,
+        "std_f1_macro": 0.0017191624515701567
+      },
+      "LightGBM": {
+        "mean_f1_macro": 0.9944587370253011,
+        "std_f1_macro": 0.0020870819270196843
+      },
+      "HistGradBoost": {
+        "mean_f1_macro": 0.9934524988961337,
+        "std_f1_macro": 0.0028369708930950648
+      },
+      "XGBoost": {
+        "mean_f1_macro": 0.9910512425228031,
+        "std_f1_macro": 0.0021509234491364163
+      },
+      "LogisticRegression": {
+        "mean_f1_macro": 0.970626593927688,
+        "std_f1_macro": 0.004084613837710599
+      },
+      "SVM_RBF": {
+        "mean_f1_macro": 0.9943311853158606,
+        "std_f1_macro": 0.001785981223348174
+      },
+      "KNN": {
+        "mean_f1_macro": NaN,
+        "std_f1_macro": NaN
+      }
+    },
+    "successful_models": [
+      "RandomForest",
+      "ExtraTrees",
+      "LightGBM",
+      "HistGradBoost",
+      "XGBoost",
+      "LogisticRegression",
+      "SVM_RBF",
+      "KNN"
+    ],
+    "failed_models": {},
+    "best_model_after_cv": "ExtraTrees"
+  },
+  "top_k_selection": {
+    "top_k_requested": 2,
+    "top_k_selected": 2,
+    "top_models": [
+      [
+        "ExtraTrees",
+        {
+          "mean_f1_macro": 0.9959736847110066,
+          "std_f1_macro": 0.0017191624515701567
+        }
+      ],
+      [
+        "LightGBM",
+        {
+          "mean_f1_macro": 0.9944587370253011,
+          "std_f1_macro": 0.0020870819270196843
+        }
+      ]
+    ]
+  },
+  "hyperparameter_tuning": {
+    "trials_per_model": 30,
+    "timeout_per_model": 300,
+    "best_params": {
+      "ExtraTrees": {
+        "n_estimators": 342,
+        "max_depth": 23,
+        "min_samples_split": 11,
+        "min_samples_leaf": 2,
+        "max_features": "log2"
+      },
+      "LightGBM": {
+        "n_estimators": 362,
+        "max_depth": 15,
+        "learning_rate": 0.1001303991139125,
+        "num_leaves": 82,
+        "subsample": 0.5780093202212182,
+        "colsample_bytree": 0.5779972601681014,
+        "reg_alpha": 3.3323645788192616e-08,
+        "reg_lambda": 0.6245760287469893,
+        "min_child_samples": 62
+      }
+    },
+    "tuning_status": {
+      "ExtraTrees": "tuned",
+      "LightGBM": "tuned"
+    },
+    "models_tuned": [
+      "ExtraTrees",
+      "LightGBM"
+    ]
+  },
+  "final_evaluation": {
+    "best_model": "LightGBM",
+    "ranking": [
+      {
+        "model_name": "LightGBM",
+        "f1_macro": 0.99496,
+        "balanced_accuracy": 0.99498,
+        "accuracy": 0.99496
+      },
+      {
+        "model_name": "ExtraTrees",
+        "f1_macro": 0.99246,
+        "balanced_accuracy": 0.99247,
+        "accuracy": 0.99244
+      }
+    ],
+    "results": {
+      "ExtraTrees": {
+        "accuracy": 0.99244,
+        "balanced_accuracy": 0.99247,
+        "f1_macro": 0.99246,
+        "f1_weighted": 0.99244,
+        "precision_macro": 0.99247,
+        "recall_macro": 0.99247,
+        "precision_weighted": 0.99246,
+        "recall_weighted": 0.99244,
+        "fit_time_s": 0.8,
+        "confusion_matrix": [
+          [
+            334,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            328,
+            4,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            325,
+            7,
+            0,
+            0
+          ],
+          [
+            0,
+            2,
+            1,
+            328,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            322,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            333
+          ]
+        ],
+        "classification_report": {
+          "Anxiety": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1-score": 1.0,
+            "support": 334.0
+          },
+          "Bipolar": {
+            "precision": 0.9939393939393939,
+            "recall": 0.9879518072289156,
+            "f1-score": 0.9909365558912386,
+            "support": 332.0
+          },
+          "Depression": {
+            "precision": 0.9848484848484849,
+            "recall": 0.9789156626506024,
+            "f1-score": 0.9818731117824774,
+            "support": 332.0
+          },
+          "Normal": {
+            "precision": 0.9791044776119403,
+            "recall": 0.9879518072289156,
+            "f1-score": 0.9835082458770614,
+            "support": 332.0
+          },
+          "Stress": {
+            "precision": 0.9969040247678018,
+            "recall": 1.0,
+            "f1-score": 0.9984496124031008,
+            "support": 322.0
+          },
+          "Suicidal": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1-score": 1.0,
+            "support": 333.0
+          },
+          "accuracy": 0.9924433249370277,
+          "macro avg": {
+            "precision": 0.9924660635279366,
+            "recall": 0.9924698795180723,
+            "f1-score": 0.9924612543256464,
+            "support": 1985.0
+          },
+          "weighted avg": {
+            "precision": 0.9924550923425552,
+            "recall": 0.9924433249370277,
+            "f1-score": 0.9924424798451671,
+            "support": 1985.0
+          }
+        }
+      },
+      "LightGBM": {
+        "accuracy": 0.99496,
+        "balanced_accuracy": 0.99498,
+        "f1_macro": 0.99496,
+        "f1_weighted": 0.99496,
+        "precision_macro": 0.99497,
+        "recall_macro": 0.99498,
+        "precision_weighted": 0.99498,
+        "recall_weighted": 0.99496,
+        "fit_time_s": 16.89,
+        "confusion_matrix": [
+          [
+            334,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            328,
+            4,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            330,
+            1,
+            1,
+            0
+          ],
+          [
+            0,
+            2,
+            1,
+            328,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            322,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            333
+          ]
+        ],
+        "classification_report": {
+          "Anxiety": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1-score": 1.0,
+            "support": 334.0
+          },
+          "Bipolar": {
+            "precision": 0.9939393939393939,
+            "recall": 0.9879518072289156,
+            "f1-score": 0.9909365558912386,
+            "support": 332.0
+          },
+          "Depression": {
+            "precision": 0.9850746268656716,
+            "recall": 0.9939759036144579,
+            "f1-score": 0.9895052473763118,
+            "support": 332.0
+          },
+          "Normal": {
+            "precision": 0.9969604863221885,
+            "recall": 0.9879518072289156,
+            "f1-score": 0.9924357034795764,
+            "support": 332.0
+          },
+          "Stress": {
+            "precision": 0.9938271604938271,
+            "recall": 1.0,
+            "f1-score": 0.9969040247678018,
+            "support": 322.0
+          },
+          "Suicidal": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1-score": 1.0,
+            "support": 333.0
+          },
+          "accuracy": 0.9949622166246851,
+          "macro avg": {
+            "precision": 0.9949669446035134,
+            "recall": 0.9949799196787148,
+            "f1-score": 0.9949635885858216,
+            "support": 1985.0
+          },
+          "weighted avg": {
+            "precision": 0.9949802932217938,
+            "recall": 0.9949622166246851,
+            "f1-score": 0.9949614247935911,
+            "support": 1985.0
+          }
+        }
+      }
+    }
+  },
+  "run_completed_at": "2026-05-23T14:03:40.496929",
+  "artifact_save": {
+    "output_dir": "voice_ml_pipeline_output\\LightGBM_23052026_140340",
+    "files": [
+      [
+        "best_model.joblib",
+        3016.4
+      ],
+      [
+        "scaler.joblib",
+        0.8
+      ],
+      [
+        "label_encoder.joblib",
+        0.3
+      ],
+      [
+        "encoding_artifacts.joblib",
+        0.1
+      ],
+      [
+        "outlier_transformers.joblib",
+        0.8
+      ],
+      [
+        "feature_names.json",
+        0.2
+      ],
+      [
+        "model_metadata.json",
+        8.7
+      ]
+    ]
+  }
+}
