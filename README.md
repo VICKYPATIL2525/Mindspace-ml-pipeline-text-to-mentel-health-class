@@ -44,6 +44,7 @@ Both pipelines are **fully automated and adaptive**: they handle EDA, feature en
 - Input: 13 principal components extracted from OpenSMILE acoustic features
 - Same anti-leakage pipeline design as the text pipeline
 - Trained on acoustic/prosodic feature dataset with pre-computed PCA reduction
+- Now includes SHAP explainability (Step 17) and saves confusion matrix + SHAP plots to output folder
 
 ---
 
@@ -114,7 +115,7 @@ Both pipelines are **fully automated and adaptive**: they handle EDA, feature en
 
 > **Visual diagrams** of every flow (end-to-end pipeline, anti-leakage, feature selection, model tuning, outlier handling) are in [`project flow diagrams/PIPELINE_FLOW_CLEAN.md`](project%20flow%20diagrams/PIPELINE_FLOW_CLEAN.md)
 
-### Text Pipeline — 18 Steps
+### Text Pipeline — 19 Steps
 
 | Step | Stage | What Happens |
 |------|-------|-------------|
@@ -135,8 +136,9 @@ Both pipelines are **fully automated and adaptive**: they handle EDA, feature en
 | **14** | Training & CV | 5-fold stratified CV, scored by `f1_macro` |
 | **15** | Top-K Selection | Pick top 2 models for tuning |
 | **16** | Hyperparameter Tuning | Optuna TPE, 15 trials, 3-min timeout, 5-fold CV per model |
-| **17** | Final Evaluation | Full test-set metrics, confusion matrix, runner-up comparison |
-| **18** | Save Artifacts | Model, scaler, encoder, transformers, feature names, metadata |
+| **17** | Final Evaluation | Full test-set metrics, raw + normalized confusion matrix (saved as PNG), runner-up comparison |
+| **18** | Save Artifacts | Model, scaler, encoder, transformers, feature names, metadata, confusion matrix PNG |
+| **19** | Model Explainability (SHAP) | Global importance, per-class summary, per-class top-10, waterfall plots — all saved as PNG |
 
 ### Anti-Leakage Design
 
@@ -250,26 +252,37 @@ Mindspace-voice-agent/
 │   └── project_flow_diagram.md          # High-level project overview diagram
 │
 ├── text_ml_pipeline_output/
-│   └── LightGBM_13032026_110356/        # Text model artifacts
-│       ├── best_model.joblib            # Trained LightGBM classifier (7.7 MB)
-│       ├── scaler.joblib                # RobustScaler (fit on 40K train samples)
-│       ├── label_encoder.joblib         # Target label encoder
-│       ├── encoding_artifacts.joblib    # Categorical encoding maps
-│       ├── outlier_transformers.joblib  # Per-column outlier smoothing transforms
-│       ├── feature_names.json           # 43 selected feature names
-│       ├── model_metadata.json          # Metrics, params, class names
-│       └── pipeline_state.json          # Full pipeline execution state
+│   └── Extra_Trees_18-May-2026_12-11-08/   # Text model artifacts (latest run)
+│       ├── best_model.joblib                # Trained Extra Trees classifier
+│       ├── scaler.joblib                    # RobustScaler (fit on train samples)
+│       ├── label_encoder.joblib             # Target label encoder
+│       ├── encoding_artifacts.joblib        # Categorical encoding maps
+│       ├── outlier_transformers.joblib      # Per-column outlier smoothing transforms
+│       ├── feature_names.json               # 43 selected feature names
+│       ├── model_metadata.json              # Metrics, params, class names
+│       ├── pipeline_state.json              # Full pipeline execution state
+│       ├── confusion_matrix.png             # Raw + normalized confusion matrix
+│       ├── shap_global_importance.png       # Global SHAP feature importance
+│       ├── shap_summary_{class}.png         # SHAP beeswarm for top class
+│       ├── shap_per_class_top10.png         # Top-10 features per class grid
+│       └── shap_waterfall_{class}.png       # Per-class waterfall plots
 │
 ├── voice_ml_pipeline_output/
-│   └── ExtraTrees_25042026_142358/      # Voice model artifacts
-│       ├── best_model.joblib            # Trained ExtraTrees classifier (11 MB)
-│       ├── scaler.joblib                # RobustScaler (fit on train)
-│       ├── label_encoder.joblib         # Target label encoder
-│       ├── encoding_artifacts.joblib    # Categorical encoding maps
-│       ├── outlier_transformers.joblib  # Per-column outlier smoothing transforms
-│       ├── feature_names.json           # [PC1 … PC13]
-│       ├── model_metadata.json          # Metrics, params, class names
-│       └── pipeline_state.json          # Full pipeline execution state
+│   ├── ExtraTrees_25-Apr-2026_14-23-58/    # Voice model artifacts (earlier run)
+│   └── LightGBM_23-May-2026_14-03-40/      # Voice model artifacts (latest run)
+│       ├── best_model.joblib                # Trained LightGBM classifier
+│       ├── scaler.joblib                    # RobustScaler (fit on train)
+│       ├── label_encoder.joblib             # Target label encoder
+│       ├── encoding_artifacts.joblib        # Categorical encoding maps
+│       ├── outlier_transformers.joblib      # Per-column outlier smoothing transforms
+│       ├── feature_names.json               # [PC1 … PC13]
+│       ├── model_metadata.json              # Metrics, params, class names
+│       ├── pipeline_state.json              # Full pipeline execution state
+│       ├── confusion_matrix.png             # Raw + normalized confusion matrix (new)
+│       ├── shap_global_importance.png       # Global SHAP feature importance (new)
+│       ├── shap_summary_{class}.png         # SHAP beeswarm for top class (new)
+│       ├── shap_per_class_top10.png         # Top-10 features per class grid (new)
+│       └── shap_waterfall_{class}.png       # Per-class waterfall plots (new)
 │
 └── myenv/                               # Python virtual environment
 ```
@@ -342,7 +355,7 @@ Swagger docs: `http://localhost:9000/docs` and `http://localhost:9100/docs`
 
 ## Saved Artifacts
 
-Each pipeline run creates a timestamped folder (`{Model}_{ddmmyyyy}_{hhmmss}/`) containing:
+Each pipeline run creates a timestamped folder (`{Model}_{dd-Mon-yyyy}_{HH-MM-SS}/`) containing:
 
 | File | Description |
 |------|-------------|
@@ -354,6 +367,11 @@ Each pipeline run creates a timestamped folder (`{Model}_{ddmmyyyy}_{hhmmss}/`) 
 | `feature_names.json` | Ordered list of selected feature names |
 | `model_metadata.json` | Best model name, params, all test metrics, class names |
 | `pipeline_state.json` | Complete pipeline state (every step's decisions and stats) |
+| `confusion_matrix.png` | Raw count + normalized side-by-side confusion matrix |
+| `shap_global_importance.png` | Top 20 features by mean \|SHAP\| value |
+| `shap_summary_{class}.png` | SHAP beeswarm for the highest-confidence class |
+| `shap_per_class_top10.png` | Top 10 features per class grid |
+| `shap_waterfall_{class}.png` | Per-class waterfall plot (one sample each) |
 
 ---
 
@@ -375,9 +393,13 @@ Each pipeline run creates a timestamped folder (`{Model}_{ddmmyyyy}_{hhmmss}/`) 
 ## Roadmap
 
 - [x] Synthetic text dataset generation (multilingual: English, Hindi, Marathi)
-- [x] End-to-end text ML pipeline (18 steps, anti-leakage)
-- [x] Text model training & tuning — LightGBM (92% accuracy, 43 features, 7 classes)
+- [x] End-to-end text ML pipeline (19 steps, anti-leakage)
+- [x] Text model training & tuning — Extra Trees (latest run), 43 features, 7 classes
+- [x] SHAP explainability for text pipeline (Step 19) — global, per-class, waterfall plots saved to output
 - [x] Voice PCA pipeline — ExtraTrees (99.3% accuracy, 13 PCA features, 6 classes)
-- [x] Text API — FastAPI server, LightGBM, port 9000
-- [x] Voice API — FastAPI server, ExtraTrees, port 9100
+- [x] SHAP explainability for voice pipeline (Step 17) — global, per-class, waterfall plots saved to output
+- [x] Unified output folder naming format — `{Model}_{dd-Mon-yyyy}_{HH-MM-SS}` for both pipelines
+- [x] Confusion matrix (raw + normalized) saved as PNG for both pipelines
+- [x] Text API — FastAPI server, port 9000
+- [x] Voice API — FastAPI server, port 9100
 - [ ] Real-time voice agent — record audio → extract features → classify live

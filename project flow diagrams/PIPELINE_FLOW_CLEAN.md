@@ -66,9 +66,10 @@ flowchart LR
     %% ── Phase 6: Evaluate & Save ──
     subgraph P9["✅ Deliver"]
         direction TB
-        S17(["Step 17 · Final Eval\nAccuracy 92% · F1 0.918\nConfusion Matrix"])
-        S18(["Step 18 · Save\nmodel · scaler · encoder\ntransformers · metadata"])
-        S17 --> S18
+        S17(["Step 17 · Final Eval\nAccuracy 92% · F1 0.918\nRaw + Normalized Confusion Matrix"])
+        S18(["Step 18 · Save\nmodel · scaler · encoder\ntransformers · metadata · confusion_matrix.png"])
+        S19(["Step 19 · SHAP Explainability\nGlobal · Per-Class · Top-10 · Waterfall\nAll plots saved as PNG"])
+        S17 --> S18 --> S19
     end
 
     %% ── Connections ──
@@ -246,8 +247,8 @@ flowchart LR
 ```mermaid
 flowchart LR
     PIPELINE["Pipeline Run Complete"]
-    FOLDER["text_ml_pipeline_output/\nLightGBM_13032026_110356/"]
-    M["best_model.joblib\nTrained LightGBM"]
+    FOLDER["text_ml_pipeline_output/\n{Model}_{dd-Mon-yyyy}_{HH-MM-SS}/"]
+    M["best_model.joblib\nTrained model"]
     SC["scaler.joblib\nRobustScaler"]
     LE["label_encoder.joblib\n7 class mappings"]
     EA["encoding_artifacts.joblib\nCategorical mappings"]
@@ -255,10 +256,20 @@ flowchart LR
     FN["feature_names.json\n43 selected features"]
     MD["model_metadata.json\nMetrics & params"]
     PS["pipeline_state.json\nFull run state"]
+    CM["confusion_matrix.png\nRaw + Normalized side-by-side"]
+    SH1["shap_global_importance.png"]
+    SH2["shap_summary_{class}.png"]
+    SH3["shap_per_class_top10.png"]
+    SH4["shap_waterfall_{class}.png"]
 
     PIPELINE --> FOLDER
-    FOLDER --> M & SC & LE & EA & OT & FN & MD & PS
+    FOLDER --> M & SC & LE & EA & OT & FN & MD & PS & CM & SH1 & SH2 & SH3 & SH4
 
     style PIPELINE fill:#3a0ca3,stroke:#7209b7,color:#fff
     style FOLDER fill:#ff6d00,stroke:#ff9e00,color:#fff
+    style CM fill:#1b4332,stroke:#52b788,color:#fff
+    style SH1 fill:#1b4332,stroke:#52b788,color:#fff
+    style SH2 fill:#1b4332,stroke:#52b788,color:#fff
+    style SH3 fill:#1b4332,stroke:#52b788,color:#fff
+    style SH4 fill:#1b4332,stroke:#52b788,color:#fff
 ```

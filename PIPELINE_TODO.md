@@ -1,8 +1,7 @@
 # ML Pipeline — Improvement To-Do List
-**Project:** Mindspace Voice Agent — Text ML Pipeline  
-**File:** `text-ml-pipeline.ipynb`  
-**Data:** `data/text_parameters_for_ml.csv` — 15,000 rows, 52 features, 5 mental health classes  
-**Task Type:** Multi-class Classification (fixed — no regression path needed)
+**Project:** Mindspace Voice Agent — Text + Voice ML Pipelines  
+**Files:** `text-ml-pipeline.ipynb` · `voice-pca-pipeline-guided.ipynb`  
+**Last Updated:** 23-May-2026
 
 ---
 
@@ -15,7 +14,7 @@
 
 ---
 
-## To-Do Items (All Completed)
+## Text Pipeline — Items (All Completed)
 
 - [x] Item 1 — Fix FILE_PATH + lock TASK_TYPE
 - [x] Item 2 — Fix TARGET_COLUMN default
@@ -25,6 +24,15 @@
 - [x] Item 6 — Per-class feature mean table + heatmap
 - [x] Item 7 — Conservative feature pruning (MI=0 AND p>0.05)
 - [x] Item 8 — SHAP Step 19 (global importance, beeswarm, per-class, waterfall)
+- [x] Item 9 — Save confusion matrix (raw + normalized) as PNG to output folder
+
+## Voice Pipeline — Items (All Completed)
+
+- [x] Item 1 — Add normalized confusion matrix (side-by-side with raw count plot)
+- [x] Item 2 — Save confusion matrix PNG to output folder (Step 16)
+- [x] Item 3 — Add SHAP explainability Step 17 (global importance, per-class summary, top-10 grid, waterfall plots — all saved as PNG)
+- [x] Item 4 — Unify output folder naming format with text pipeline: `{Model}_{dd-Mon-yyyy}_{HH-MM-SS}`
+- [x] Item 5 — Rename existing output folders to new format
 
 ---
 
@@ -147,24 +155,26 @@ This is a mental health classification system. A clinician or reviewer needs to 
 
 ---
 
-## Summary Table
+## Summary Table — Text Pipeline
 
-| # | Item | Cell(s) | Effort | Priority |
-|---|------|---------|--------|----------|
-| 1 | Fix FILE_PATH + lock TASK_TYPE in config | 5 | Small | Critical |
-| 2 | Fix TARGET_COLUMN default value | 12 | Small | Critical |
-| 3 | Empty COLUMNS_TO_DROP by default | 10 | Tiny | Critical |
-| 4 | Add markdown documentation to every step | All MD cells | Medium | High |
-| 5 | Paginate EDA plots across all features | 24 | Medium | High |
-| 6 | Per-class feature mean table + heatmap | 24 | Medium | High |
-| 7 | Smarter feature pruning (MI=0 + p>0.05) | 26 | Medium | High |
-| 8 | SHAP explainability step (new Step 19) | New cells | Large | High |
+| # | Item | Status |
+|---|------|--------|
+| 1 | Fix FILE_PATH + lock TASK_TYPE in config | Done |
+| 2 | Fix TARGET_COLUMN default value | Done |
+| 3 | Empty COLUMNS_TO_DROP by default | Done |
+| 4 | Add markdown documentation to every step | Done |
+| 5 | Paginate EDA plots across all features | Done |
+| 6 | Per-class feature mean table + heatmap | Done |
+| 7 | Smarter feature pruning (MI=0 + p>0.05) | Done |
+| 8 | SHAP explainability step (Step 19) | Done |
+| 9 | Save confusion matrix PNG to output folder | Done |
 
----
+## Summary Table — Voice Pipeline
 
-## Order of Implementation
-Work top-to-bottom — each item is independent but Items 1-3 must be done first since they fix crashes.
-
-```
-Item 1 → Item 2 → Item 3 → Item 4 → Item 5 → Item 6 → Item 7 → Item 8
-```
+| # | Item | Status |
+|---|------|--------|
+| 1 | Normalized confusion matrix (side-by-side with raw) | Done |
+| 2 | Save confusion matrix PNG to output folder (Step 16) | Done |
+| 3 | SHAP explainability Step 17 (4 plot types, all saved as PNG) | Done |
+| 4 | Unify output folder naming with text pipeline format | Done |
+| 5 | Rename existing output folders to new format | Done |

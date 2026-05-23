@@ -57,9 +57,10 @@ flowchart LR
     %% ── Phase 6: Evaluate & Save ──
     subgraph P7["✅ Deliver"]
         direction TB
-        S15(["Step 15 · Final Evaluation\nAccuracy 99.3% · F1 Macro 0.9927\nConfusion Matrix · Per-Class Report"])
-        S16(["Step 16 · Save\nmodel · scaler · encoder\ntransformers · metadata · state"])
-        S15 --> S16
+        S15(["Step 15 · Final Evaluation\nAccuracy 99.3% · F1 Macro 0.9927\nRaw + Normalized Confusion Matrix · Per-Class Report"])
+        S16(["Step 16 · Save\nmodel · scaler · encoder\ntransformers · metadata · state · confusion_matrix.png"])
+        S17(["Step 17 · SHAP Explainability\nGlobal Importance · Per-Class Summary\nTop-10 Grid · Waterfall Plots · All saved as PNG"])
+        S15 --> S16 --> S17
     end
 
     %% ── Connections ──
@@ -300,20 +301,30 @@ flowchart TD
 ```mermaid
 flowchart LR
     PIPELINE["Pipeline Run Complete"]
-    FOLDER["voice_ml_pipeline_output /\nExtraTrees_25042026_142358 /"]
-    M["best_model.joblib\nTrained Extra Trees Classifier\n11,230.8 KB"]
-    SC["scaler.joblib\nFitted RobustScaler\n0.6 KB"]
-    LE["label_encoder.joblib\n6 class label mappings\n0.3 KB"]
-    EA["encoding_artifacts.joblib\nNo categorical encoding needed\n(PCA-only pipeline)\n0.1 KB"]
-    OT["outlier_transformers.joblib\nPer-column outlier transform parameters\n0.7 KB"]
-    FN["feature_names.json\n13 selected PCA feature names\n0.1 KB"]
-    MD["model_metadata.json\nMetrics · best params · class names\nhardware info · 8.3 KB"]
-    PS["pipeline_state.json\nComplete run state from all steps\n12.7 KB"]
+    FOLDER["voice_ml_pipeline_output /\n{Model}_{dd-Mon-yyyy}_{HH-MM-SS} /"]
+    M["best_model.joblib\nTrained classifier"]
+    SC["scaler.joblib\nFitted RobustScaler"]
+    LE["label_encoder.joblib\n6 class label mappings"]
+    EA["encoding_artifacts.joblib\nNo categorical encoding needed\n(PCA-only pipeline)"]
+    OT["outlier_transformers.joblib\nPer-column outlier transform parameters"]
+    FN["feature_names.json\n13 selected PCA feature names"]
+    MD["model_metadata.json\nMetrics · best params · class names · hardware info"]
+    PS["pipeline_state.json\nComplete run state from all steps"]
+    CM["confusion_matrix.png\nRaw + Normalized side-by-side"]
+    SH1["shap_global_importance.png\nTop 20 features by mean SHAP"]
+    SH2["shap_summary_{class}.png\nBeeswarm for top class"]
+    SH3["shap_per_class_top10.png\nTop-10 features per class grid"]
+    SH4["shap_waterfall_{class}.png\nOne waterfall per class"]
 
     PIPELINE --> FOLDER
-    FOLDER --> M & SC & LE & EA & OT & FN & MD & PS
+    FOLDER --> M & SC & LE & EA & OT & FN & MD & PS & CM & SH1 & SH2 & SH3 & SH4
 
     style PIPELINE fill:#3a0ca3,stroke:#7209b7,color:#fff
     style FOLDER fill:#ff6d00,stroke:#ff9e00,color:#fff
     style M fill:#2d6a4f,stroke:#40916c,color:#fff
+    style CM fill:#1b4332,stroke:#52b788,color:#fff
+    style SH1 fill:#1b4332,stroke:#52b788,color:#fff
+    style SH2 fill:#1b4332,stroke:#52b788,color:#fff
+    style SH3 fill:#1b4332,stroke:#52b788,color:#fff
+    style SH4 fill:#1b4332,stroke:#52b788,color:#fff
 ```
