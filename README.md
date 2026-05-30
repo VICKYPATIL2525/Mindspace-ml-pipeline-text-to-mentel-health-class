@@ -1,6 +1,8 @@
 # Mindspace — Mental Health Profiling via NLP & Voice Features
 
-> **Dual-pipeline ML system that classifies mental health profiles from text/linguistic features and voice/acoustic PCA features — achieving 92% accuracy (text) and 99.3% accuracy (voice) across 7 and 6 classes respectively.**
+> **Dual-pipeline ML system that screens for mental health profiles from text/linguistic features and voice/acoustic PCA features — achieving 99.15% accuracy (text) and 99.50% accuracy (voice) across 6 classes each.**
+
+> ⚠️ **Disclaimer:** This project is a **screening / research tool for educational purposes only**. It is **not** a diagnostic tool and does **not** provide a clinical diagnosis. A positive screen is not a diagnosis — always consult a qualified mental-health professional.
 
 ---
 
@@ -22,57 +24,55 @@
 
 ## Project Summary
 
-Mindspace is a mental health classification system with two independent ML pipelines and two production FastAPI inference servers:
+Mindspace is a mental health **screening** system with two independent, fully automated ML pipelines:
 
 | Pipeline | Notebook | Model | Accuracy | Input |
 |----------|----------|-------|----------|-------|
-| **Text** | `text-ml-pipeline.ipynb` | LightGBM | 92.0% | 43 linguistic/semantic features |
-| **Voice** | `voice-pca-pipeline-guided.ipynb` | ExtraTrees | 99.3% | 13 PCA components from acoustic features |
+| **Text** | `text-ml-pipeline.ipynb` | Extra Trees | 99.15% | 20 linguistic/semantic features |
+| **Voice** | `voice-pca-pipeline-guided.ipynb` | LightGBM | 99.50% | 23 PCA components from acoustic features |
 
 Both pipelines are **fully automated and adaptive**: they handle EDA, feature engineering, model selection, hyperparameter tuning, and artifact saving without manual intervention.
 
 ### What Each Pipeline Does
 
 **Text Pipeline**
-- Classifies mental health profiles into **7 categories** based on linguistic, emotional, and semantic features extracted from speech/text
+- Screens for mental health profiles across **6 categories** based on linguistic, emotional, and semantic features extracted from speech/text
 - Handles outliers, nulls, duplicates, leakage, encoding, feature selection, and scaling automatically
 - Prevents data leakage — train/test split happens *before* any transformation
 - Trains and compares up to 8 ML algorithms via 5-fold CV, tunes top 2 with Optuna
 
 **Voice Pipeline**
-- Classifies mental health profiles into **6 categories** based on PCA-reduced acoustic features
-- Input: 13 principal components extracted from OpenSMILE acoustic features
+- Screens for mental health profiles across **6 categories** based on PCA-reduced acoustic features
+- Input: principal components extracted from OpenSMILE acoustic features
 - Same anti-leakage pipeline design as the text pipeline
-- Trained on acoustic/prosodic feature dataset with pre-computed PCA reduction
-- Now includes SHAP explainability (Step 17) and saves confusion matrix + SHAP plots to output folder
+- Includes SHAP explainability (Step 17) and saves confusion matrix + SHAP plots to output folder
 
 ---
 
 ## Datasets
 
+> **Note:** The datasets are not included in this repository (the `data/` folder is git-ignored — the CSVs exceed GitHub's file-size limits). Supply your own CSVs with the columns described below.
+
 ### Text Dataset
 
 | Property | Value |
 |----------|-------|
-| **File** | `data/mental_health_synthetic_dataset_with_normal.csv` |
-| **Rows** | 50,000 |
-| **Columns** | 66 (61 float, 3 object, 2 int) |
-| **Target** | `profile` (7 classes) |
+| **File** | `data/TEXT.csv` |
+| **Columns** | 53 (52 linguistic/semantic features + target) |
+| **Target** | `mental_health_label` (6 classes) |
 | **Task** | Multi-class classification |
-| **Imbalance Ratio** | 2.54:1 |
-| **Train / Test Split** | 40,000 / 10,000 (80/20, stratified) |
+| **Train / Test Split** | 8,001 / 2,001 (80/20, stratified) |
 
 **Text Target Classes**
 
 | Class | Description |
 |-------|-------------|
-| Anxiety | Anxiety-related speech patterns |
-| Bipolar_Mania | Manic episode indicators |
-| Depression | Depressive speech markers |
-| Normal | Baseline / healthy patterns |
-| Phobia | Phobia-related indicators |
-| Stress | Stress-related speech patterns |
-| Suicidal_Tendency | Suicidal ideation markers |
+| ANXIETY | Anxiety-related speech patterns |
+| BIPOLAR | Bipolar / manic episode indicators |
+| DEPRESSION | Depressive speech markers |
+| NORMAL | Baseline / healthy patterns |
+| STRESS | Stress-related speech patterns |
+| SUICIDAL | Suicidal ideation markers |
 
 **Text Feature Categories**
 
@@ -89,12 +89,11 @@ Both pipelines are **fully automated and adaptive**: they handle EDA, feature en
 
 | Property | Value |
 |----------|-------|
-| **File** | `data/features_pca_dataset.csv` |
-| **Rows** | ~3,000 |
-| **Columns** | 14 (13 PCA features + label) |
+| **File** | `data/features_pca.csv` |
+| **Columns** | 25 (24 PCA features `PC1`–`PC24` + label) |
 | **Target** | `label` (6 classes) |
 | **Task** | Multi-class classification |
-| **Train / Test Split** | ~2,400 / ~600 (80/20, stratified) |
+| **Train / Test Split** | 80/20, stratified |
 
 **Voice Target Classes**
 
@@ -107,42 +106,72 @@ Both pipelines are **fully automated and adaptive**: they handle EDA, feature en
 | Stress | Stress-related voice patterns |
 | Suicidal | Suicidal ideation voice markers |
 
-**Voice Features**: 13 PCA components (PC1–PC13) derived from OpenSMILE acoustic features including MFCC coefficients, spectral features (entropy, rolloff, harmonicity, flux), pitch (F0), shimmer, jitter, voicing, RMS energy, zero-crossing rate, and HNR.
+**Voice Features**: PCA components (`PC1`–`PC24`) derived from OpenSMILE acoustic features including MFCC coefficients, spectral features (entropy, rolloff, harmonicity, flux), pitch (F0), shimmer, jitter, voicing, RMS energy, zero-crossing rate, and HNR. Feature selection keeps 23 of the 24 components (drops `PC17`).
 
 ---
 
 ## Pipeline Architecture
 
-> **Visual diagrams** of every flow (end-to-end pipeline, anti-leakage, feature selection, model tuning, outlier handling) are in [`project flow diagrams/PIPELINE_FLOW_CLEAN.md`](project%20flow%20diagrams/PIPELINE_FLOW_CLEAN.md)
+> **Visual diagrams + step-by-step explanations** of each pipeline are in the `project flow diagrams/` folder:
+> - Text pipeline → [`PIPELINE_FLOW_CLEAN.md`](project%20flow%20diagrams/PIPELINE_FLOW_CLEAN.md)
+> - Voice pipeline → [`VOICE_PIPELINE_FLOW.md`](project%20flow%20diagrams/VOICE_PIPELINE_FLOW.md)
 
-### Text Pipeline — 19 Steps
+### Text Pipeline — Steps 0–19
+
+Full diagrams + per-step "what & why" are in [`project flow diagrams/PIPELINE_FLOW_CLEAN.md`](project%20flow%20diagrams/PIPELINE_FLOW_CLEAN.md).
 
 | Step | Stage | What Happens |
 |------|-------|-------------|
 | **0** | Import & Hardware Detection | Load libraries; detect GPU (CUDA) and CPU core count |
-| **1** | Configuration | Set CSV path, random seed (42), output directory |
-| **2** | Data Loading | Load CSV, preview shape, dtypes, head |
-| **3** | Column Overview | Print all columns for manual review |
-| **4** | Target Selection | Set `TARGET_COLUMN = 'profile'` |
-| **5** | Data Profiling | Detect nulls, duplicates, constants, ID-like columns, leakage |
-| **6** | Auto-Clean | Drop flagged columns, impute remaining nulls |
+| **1** | Configuration | Set `FILE_PATH`, `TASK_TYPE`, random seed (42), output directory |
+| **2** | Data Loading | Load CSV into `df` (keep untouched `df_raw`); preview shape, dtypes, head |
+| **3** | Column Overview & Optional Drop | Per-column summary; drop columns in `COLUMNS_TO_DROP` (empty by default) |
+| **4** | Target Selection | Set `TARGET_COLUMN = 'mental_health_label'` and validate it exists |
+| **5** | Data Profiling | Detect nulls, duplicates, constants, ID-like columns, leakage (diagnostic) |
+| **6** | Auto-Clean | Drop flagged columns, impute remaining nulls, drop duplicate rows |
 | **7** | Target Analysis & Split | Analyze class balance → **train/test split (80/20, stratified)** before any transformation |
 | **8** | Outlier Handling | Test 4 smoothing strategies per column (winsorize, log1p, sqrt, yeo-johnson); pick lowest skew. Fit on train only. |
-| **9** | Encoding | Binary → Label Encoding; Low-cardinality → One-Hot; High-cardinality → Frequency Encoding. Fit on train only. |
+| **9** | Feature Type Handling | Binary → Label Encoding; Low-cardinality → One-Hot; High-cardinality → Frequency Encoding. Fit on train only. |
 | **10** | EDA & Visualization | Distribution plots, correlation heatmaps, Kruskal-Wallis H tests, Levene's W tests — training data only |
-| **11** | Feature Selection | Correlation filter → VIF → RF importance + MI + stat tests consensus → prune MI < 0.01. **65 → 43 features.** |
+| **11** | Feature Selection | Correlation filter → VIF → RF importance + MI + stat tests consensus → conservative pruning. **52 → 20 features.** |
 | **12** | Scaling | RobustScaler fit on train, transform both |
 | **13** | Model Shortlisting | Dynamically select models based on dataset size and dimensionality |
 | **14** | Training & CV | 5-fold stratified CV, scored by `f1_macro` |
 | **15** | Top-K Selection | Pick top 2 models for tuning |
-| **16** | Hyperparameter Tuning | Optuna TPE, 15 trials, 3-min timeout, 5-fold CV per model |
-| **17** | Final Evaluation | Full test-set metrics, raw + normalized confusion matrix (saved as PNG), runner-up comparison |
-| **18** | Save Artifacts | Model, scaler, encoder, transformers, feature names, metadata, confusion matrix PNG |
+| **16** | Hyperparameter Tuning | Optuna TPE sampler, 5-fold CV per trial |
+| **17** | Final Evaluation | Full test-set metrics + raw & normalized confusion matrix → **Extra Trees, 99.15% accuracy** |
+| **18** | Save Artifacts | Model, scaler, encoders, transformers, feature names, metadata |
 | **19** | Model Explainability (SHAP) | Global importance, per-class summary, per-class top-10, waterfall plots — all saved as PNG |
+
+### Voice Pipeline — Steps 0–17
+
+Full diagrams + per-step "what & why" are in [`project flow diagrams/VOICE_PIPELINE_FLOW.md`](project%20flow%20diagrams/VOICE_PIPELINE_FLOW.md).
+
+| Step | Stage | What Happens |
+|------|-------|-------------|
+| **0** | Imports & Hardware Detection | Load libraries; detect GPU (CUDA) and CPU core count |
+| **1** | Configuration | Build `CONFIG` (path, seed, output directory) |
+| **2** | Data Loading | Load PCA CSV; preview shape, dtypes, head |
+| **3** | Column Overview | Per-column summary of `PC1`–`PC24` + label |
+| **3.5** | Manual Setup | Optional column drops + set `TARGET_COLUMN = 'label'` |
+| **4** | Data Profiling | Detect nulls, duplicates, dtype issues (diagnostic) |
+| **5** | Target Validation | Confirm label; analyze class balance (6 classes) |
+| **6** | Auto-Clean | Drop duplicate rows / flagged columns |
+| **7** | Target Analysis & Split | Stratified **train/test split (80/20)** before any transformation |
+| **8** | Outlier Smoothing | Per-column lowest-skew smoothing. Fit on train only. |
+| **9** | Feature Selection | MI + RF consensus → drop `PC17`. **24 → 23 features.** Fit on train only. |
+| **10** | Scaling | RobustScaler fit on train, transform both *(note: selection comes before scaling here)* |
+| **11** | Model Shortlisting | Dynamically select candidate models for the data/hardware |
+| **12** | Training & CV | 5-fold stratified CV, scored by `f1_macro` |
+| **13** | Top-K Selection | Pick top 2 models for tuning |
+| **14** | Hyperparameter Tuning | Optuna TPE sampler, 5-fold CV per trial |
+| **15** | Final Evaluation | Full test-set metrics + raw & normalized confusion matrix → **LightGBM, 99.50% accuracy** |
+| **16** | Save Artifacts | Model, scaler, encoder, transformers, feature names, metadata |
+| **17** | Model Explainability (SHAP) | Global importance, per-class summary, top-10 grid, waterfall plots — all saved as PNG |
 
 ### Anti-Leakage Design
 
-Every transformation (outlier handling, encoding, scaling, feature selection) is **fit exclusively on training data** and applied identically to the test set. The train/test split at Step 7 is a hard boundary — no test data information flows backward.
+In **both** pipelines every transformation that learns from data (outlier handling, encoding, scaling, feature selection) is **fit exclusively on training data** and applied identically to the test set. The train/test split (text Step 7 / voice Step 7) is a hard boundary — no test data information flows backward.
 
 ---
 
@@ -173,118 +202,107 @@ Every transformation (outlier handling, encoding, scaling, feature selection) is
 
 ## Key Results
 
-### Text Model — LightGBM
+### Text Model — Extra Trees
 
 | Metric | Score |
 |--------|-------|
-| **Accuracy** | 0.920 |
-| **F1 (macro)** | 0.918 |
-| **F1 (weighted)** | 0.920 |
-| **Precision (macro)** | 0.917 |
-| **Recall (macro)** | 0.920 |
+| **Accuracy** | 0.9915 |
+| **F1 (macro)** | 0.9915 |
+| **F1 (weighted)** | 0.9915 |
+| **Precision (macro)** | 0.9915 |
+| **Recall (macro)** | 0.9915 |
 
-Training: 40,000 samples | Test: 10,000 samples | Features: 43 (selected from 65)
+Training: 8,001 samples | Test: 2,001 samples | Features: 20 (selected from 52)
 
 **Tuned Hyperparameters**
 
 | Parameter | Value |
 |-----------|-------|
-| `n_estimators` | 250 |
+| `n_estimators` | 113 |
+| `max_depth` | 28 |
+| `min_samples_split` | 6 |
+| `min_samples_leaf` | 7 |
+| `max_features` | None |
+
+**Top predictors** (from saved feature set): `overall_sentiment_score`, `self_reference_density`, `fear_word_frequency`, `emotional_volatility_score`, `catastrophizing_indicators`, `negative_emotion_spike_count`
+
+### Voice Model — LightGBM
+
+| Metric | Score |
+|--------|-------|
+| **Accuracy** | 0.9950 |
+| **Balanced Accuracy** | 0.9950 |
+| **F1 (macro)** | 0.9950 |
+| **F1 (weighted)** | 0.9950 |
+| **Precision (macro)** | 0.9950 |
+| **Recall (macro)** | 0.9950 |
+
+Test: 1,985 samples | Features: 23 PCA components (`PC1`–`PC24`, excluding `PC17`)
+
+**Tuned Hyperparameters**
+
+| Parameter | Value |
+|-----------|-------|
+| `n_estimators` | 362 |
 | `max_depth` | 15 |
-| `learning_rate` | 0.121 |
-| `num_leaves` | 64 |
+| `learning_rate` | 0.100 |
+| `num_leaves` | 82 |
 | `subsample` | 0.578 |
 | `colsample_bytree` | 0.578 |
-| `min_child_samples` | 7 |
-| `reg_alpha` | 0.625 |
-| `reg_lambda` | 0.003 |
+| `min_child_samples` | 62 |
+| `reg_lambda` | 0.625 |
 
-**Top predictors**: `overall_sentiment_score`, `semantic_coherence_score`, `self_reference_density`, `future_focus_ratio`, `positive_emotion_ratio`, `fear_word_frequency`
-
-### Voice Model — ExtraTrees
-
-| Metric | Score |
-|--------|-------|
-| **Accuracy** | 0.993 |
-| **F1 (macro)** | 0.993 |
-| **F1 (weighted)** | 0.993 |
-| **Precision (macro)** | 0.993 |
-| **Recall (macro)** | 0.993 |
-
-Training: ~2,400 samples | Test: ~600 samples | Features: 13 PCA components (PC1–PC13)
-
-**Tuned Hyperparameters**
-
-| Parameter | Value |
-|-----------|-------|
-| `n_estimators` | 400 |
-| `max_depth` | 26 |
-| `min_samples_split` | 2 |
-| `min_samples_leaf` | 1 |
-| `max_features` | sqrt |
+Runner-up: Extra Trees (F1 macro 0.9925).
 
 ---
 
 ## Project Structure
 
 ```
-Mindspace-voice-agent/
-├── text-ml-pipeline.ipynb               # Text ML pipeline (18 steps, 39 cells)
-├── voice-pca-pipeline-guided.ipynb      # Voice/PCA ML pipeline
+Mindspace-ml-pipeline/
+├── text-ml-pipeline.ipynb               # Text ML pipeline (19 steps)
+├── voice-pca-pipeline-guided.ipynb      # Voice/PCA ML pipeline (17 steps)
 ├── requirements.txt                     # Python dependencies
+├── README.md                            # This file
 │
-├── data/
-│   └── features_pca_dataset.csv         # Voice PCA dataset (~3K rows, 13 PCA + label)
+├── data/                                # Datasets (git-ignored — not in repo)
+│   ├── TEXT.csv                         # Text dataset (53 cols: 52 features + label)
+│   └── features_pca.csv                 # Voice PCA dataset (25 cols: PC1–PC24 + label)
 │
 ├── demo-api-input-data-sample/
-│   └── voice_normal_sample_1.json       # Sample voice API request (13 PCA features)
-│
-├── Both_API_combined/                   # FastAPI inference servers
-│   ├── api_text_to_sentiment.py         # Text API — LightGBM, 43 features, 7 classes (port 9000)
-│   ├── api_voice_to_sentiment.py        # Voice API — ExtraTrees, 13 PCA features, 6 classes (port 9100)
-│   ├── .env                             # API_KEY (never commit)
-│   ├── .env.example                     # Template for .env
-│   ├── requirements.txt                 # Deployment-only dependencies
-│   └── README.md                        # API deployment documentation
+│   ├── voice_depression_sample.json     # Sample voice request (PCA features)
+│   └── voice_stress_sample.json         # Sample voice request (PCA features)
 │
 ├── project flow diagrams/               # Visual documentation
-│   ├── PIPELINE_FLOW_CLEAN.md           # Mermaid diagrams of all pipeline flows
-│   └── project_flow_diagram.md          # High-level project overview diagram
+│   ├── PIPELINE_FLOW_CLEAN.md           # Text pipeline — diagrams + step-by-step guide
+│   └── VOICE_PIPELINE_FLOW.md           # Voice pipeline — diagrams + step-by-step guide
 │
 ├── text_ml_pipeline_output/
+│   ├── readme.md
 │   └── Extra_Trees_18-May-2026_12-11-08/   # Text model artifacts (latest run)
 │       ├── best_model.joblib                # Trained Extra Trees classifier
 │       ├── scaler.joblib                    # RobustScaler (fit on train samples)
 │       ├── label_encoder.joblib             # Target label encoder
 │       ├── encoding_artifacts.joblib        # Categorical encoding maps
 │       ├── outlier_transformers.joblib      # Per-column outlier smoothing transforms
-│       ├── feature_names.json               # 43 selected feature names
+│       ├── feature_names.json               # 20 selected feature names
 │       ├── model_metadata.json              # Metrics, params, class names
 │       ├── pipeline_state.json              # Full pipeline execution state
-│       ├── confusion_matrix.png             # Raw + normalized confusion matrix
-│       ├── shap_global_importance.png       # Global SHAP feature importance
-│       ├── shap_summary_{class}.png         # SHAP beeswarm for top class
-│       ├── shap_per_class_top10.png         # Top-10 features per class grid
-│       └── shap_waterfall_{class}.png       # Per-class waterfall plots
+│       └── shap_*.png                       # SHAP global / per-class / waterfall plots
 │
 ├── voice_ml_pipeline_output/
-│   ├── ExtraTrees_25-Apr-2026_14-23-58/    # Voice model artifacts (earlier run)
+│   ├── readme.md
 │   └── LightGBM_23-May-2026_14-03-40/      # Voice model artifacts (latest run)
 │       ├── best_model.joblib                # Trained LightGBM classifier
 │       ├── scaler.joblib                    # RobustScaler (fit on train)
 │       ├── label_encoder.joblib             # Target label encoder
 │       ├── encoding_artifacts.joblib        # Categorical encoding maps
 │       ├── outlier_transformers.joblib      # Per-column outlier smoothing transforms
-│       ├── feature_names.json               # [PC1 … PC13]
+│       ├── feature_names.json               # 23 selected PCA feature names
 │       ├── model_metadata.json              # Metrics, params, class names
-│       ├── pipeline_state.json              # Full pipeline execution state
-│       ├── confusion_matrix.png             # Raw + normalized confusion matrix (new)
-│       ├── shap_global_importance.png       # Global SHAP feature importance (new)
-│       ├── shap_summary_{class}.png         # SHAP beeswarm for top class (new)
-│       ├── shap_per_class_top10.png         # Top-10 features per class grid (new)
-│       └── shap_waterfall_{class}.png       # Per-class waterfall plots (new)
+│       └── pipeline_state.json              # Full pipeline execution state
 │
-└── myenv/                               # Python virtual environment
+└── myenv/                               # Python virtual environment (git-ignored)
 ```
 
 ---
@@ -301,7 +319,7 @@ Mindspace-voice-agent/
 ```bash
 # Clone the repository
 git clone <repo-url>
-cd Mindspace-voice-agent
+cd Mindspace-ml-pipeline-text-to-mentel-health-class
 
 # Create virtual environment
 python -m venv myenv
@@ -359,19 +377,7 @@ When a CUDA-capable GPU is detected, XGBoost uses `device='cuda'` and LightGBM u
 2. Set kernel to the `myenv` virtual environment
 3. Run all cells sequentially
 
-### API Servers
-
-```bash
-# From project root:
-
-# Text API (port 9000)
-uvicorn Both_API_combined.api_text_to_sentiment:app --reload --port 9000
-
-# Voice API (port 9100)
-uvicorn Both_API_combined.api_voice_to_sentiment:app --reload --port 9100
-```
-
-Swagger docs: `http://localhost:9000/docs` and `http://localhost:9100/docs`
+> The notebook expects the dataset at the path set in the **Step 1 — Configuration** cell. Place your CSV in `data/` and update `FILE_PATH` if your filename differs.
 
 ---
 
@@ -406,22 +412,21 @@ Each pipeline run creates a timestamped folder (`{Model}_{dd-Mon-yyyy}_{HH-MM-SS
 | **Tuning** | Optuna (TPE Bayesian optimization) |
 | **Visualization** | matplotlib, seaborn, plotly |
 | **Statistics** | scipy.stats (Kruskal-Wallis, Levene's, Spearman), statsmodels (VIF) |
+| **Explainability** | SHAP |
 | **GPU** | PyTorch (CUDA detection), XGBoost CUDA, LightGBM GPU |
-| **API** | FastAPI, uvicorn, pydantic |
 | **Persistence** | joblib, JSON |
 
 ---
 
 ## Roadmap
 
-- [x] Synthetic text dataset generation (multilingual: English, Hindi, Marathi)
 - [x] End-to-end text ML pipeline (19 steps, anti-leakage)
-- [x] Text model training & tuning — Extra Trees (latest run), 43 features, 7 classes
+- [x] Text model training & tuning — Extra Trees, 20 features, 6 classes, 99.15% accuracy
 - [x] SHAP explainability for text pipeline (Step 19) — global, per-class, waterfall plots saved to output
-- [x] Voice PCA pipeline — ExtraTrees (99.3% accuracy, 13 PCA features, 6 classes)
+- [x] Voice PCA pipeline — LightGBM, 23 PCA features, 6 classes, 99.50% accuracy
 - [x] SHAP explainability for voice pipeline (Step 17) — global, per-class, waterfall plots saved to output
 - [x] Unified output folder naming format — `{Model}_{dd-Mon-yyyy}_{HH-MM-SS}` for both pipelines
 - [x] Confusion matrix (raw + normalized) saved as PNG for both pipelines
-- [x] Text API — FastAPI server, port 9000
-- [x] Voice API — FastAPI server, port 9100
-- [ ] Real-time voice agent — record audio → extract features → classify live
+- [ ] FastAPI inference servers for text and voice models
+- [ ] Real-time voice agent — record audio → extract features → screen live
+- [ ] Real-time voice agent — record audio → extract features → screen live

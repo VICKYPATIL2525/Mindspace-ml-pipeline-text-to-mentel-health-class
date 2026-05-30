@@ -1,330 +1,196 @@
-# Mindspace Voice Pipeline — Diagrams
+# Voice PCA Pipeline — Flow & Step-by-Step Guide
 
-## 1. End-to-End Pipeline Flow
+Flow for **`voice-pca-pipeline-guided.ipynb`** — screens voice (acoustic) features for mental
+health profiles. It trains a **LightGBM** classifier reaching **99.50% test accuracy** across
+**6 classes** (Anxiety, Bipolar, Depression, Normal, Stress, Suicidal) from **23** PCA components
+(`PC1`–`PC24`, with `PC17` dropped).
+
+> Mermaid note: line breaks inside nodes use `<br/>` so the diagram renders on GitHub and in
+> the VS Code Markdown preview. (A literal backslash-n does not render and shows as raw text.)
+
+The notebook runs **Step 0 – Step 17**. The numbering below matches the notebook's cell banners
+exactly. Same anti-leakage design as the text pipeline; the input is already PCA-reduced, so
+there is **no categorical encoding step**.
+
+---
+
+## 1. End-to-End Flow
 
 ```mermaid
-flowchart LR
-    %% ── Phase 1: Setup & Load ──
-    subgraph P1[" "]
-        direction TB
-        S0(["⚙️ Step 0\nImports &\nHardware Detection"])
-        S1(["📁 Step 1\nConfiguration"])
-        S0 --> S1
-    end
+flowchart TD
+    S0["Step 0 · Imports & Hardware Detection<br/>libraries · CPU cores · GPU/CUDA"]
+    S1["Step 1 · Configuration<br/>CONFIG dict · path · seed · OUTPUT_DIR"]
+    S2["Step 2 · Data Loading<br/>read PCA CSV → DataFrame"]
+    S3["Step 3 · Column Overview<br/>per-column summary"]
+    S35["Step 3.5 · Manual Setup<br/>drop columns + TARGET = label"]
+    S4["Step 4 · Data Profiling & Quality Audit<br/>nulls · duplicates · dtypes (diagnostic)"]
+    S5["Step 5 · Target Validation<br/>confirm label · class balance (6 classes)"]
+    S6["Step 6 · Auto-Clean<br/>drop duplicate rows / flagged cols"]
 
-    subgraph P2[" "]
-        direction TB
-        S2(["📂 Step 2\nLoad CSV\n4,800 × 15"])
-        S3(["🔍 Step 3\nColumn Overview\n14 PCA cols + label"])
-        S35(["🎯 Step 3.5\nManual Setup\nTarget = label"])
-        S2 --> S3 --> S35
-    end
+    SPLIT{{"Step 7 · Target Analysis & Stratified Train/Test Split<br/>stratified 80/20 · test = 1,985 rows<br/>ANTI-LEAKAGE BOUNDARY"}}
 
-    subgraph P3[" "]
+    subgraph FIT["Train-fit transforms — fit on TRAIN only, apply to both"]
         direction TB
-        S4(["🧪 Step 4\nData Profiling\n38 Duplicates · 0 Nulls"])
-        S5(["✅ Step 5\nTarget Validation\n6 Classes · Balanced"])
-        S6(["🧹 Step 6\nAuto-Clean\nDrop Duplicates → 4,762 rows"])
-        S4 --> S5 --> S6
-    end
-
-    %% ── Phase 2: Split (the hard boundary) ──
-    S7{{"✂️ Step 7\nTrain / Test Split\n3,809 / 953\nStratified 80 / 20"}}
-
-    %% ── Phase 3: Train-only transforms ──
-    subgraph P4["🔧 Transform (fitted on training set only)"]
-        direction TB
-        S8(["Step 8 · Outlier Smoothing\n4 strategies → lowest skewness\nYeo-Johnson · Winsorize"])
-        S9(["Step 9 · Feature Selection\nMutual Information + Random Forest consensus\n14 → 13 features · PC14 dropped"])
-        S10(["Step 10 · RobustScaler\nCenter on median · Scale by IQR"])
+        S8["Step 8 · Outlier Smoothing<br/>per-column lowest-skew transform · never drops rows"]
+        S9["Step 9 · Loose Feature Selection<br/>MI + RF consensus · 24 → 23 (drop PC17)"]
+        S10["Step 10 · Feature Scaling<br/>RobustScaler"]
         S8 --> S9 --> S10
     end
 
-    %% ── Phase 4: Model Training ──
-    subgraph P5["🏋️ Train & Compare"]
+    subgraph MODEL["Model search & tuning — train only"]
         direction TB
-        S11(["Step 11 · Shortlist\n8 candidate models"])
-        S12(["Step 12 · 5-Fold Stratified Cross-Validation\nF1 Macro · parallel · 65.6 seconds"])
-        S13(["Step 13 · Top-2 Selection\nLightGBM 0.9876 · ExtraTrees 0.9873"])
-        S11 --> S12 --> S13
+        S11["Step 11 · Model Shortlisting<br/>hardware-aware (up to 8 models)"]
+        S12["Step 12 · Cross-Validated Training & Ranking<br/>5-fold stratified · F1 macro"]
+        S13["Step 13 · Top-K Model Selection<br/>keep top 2 by CV score"]
+        S14["Step 14 · Hyperparameter Tuning<br/>Optuna TPE · 5-fold CV per trial"]
+        S11 --> S12 --> S13 --> S14
     end
 
-    %% ── Phase 5: Tuning ──
-    subgraph P6["🎛️ Tune"]
-        S14(["Step 14 · Optuna Tree-structured Parzen Estimator\n30 trials · 300 second timeout · 5-Fold Cross-Validation\nExtraTrees improved to 0.9892"])
-    end
-
-    %% ── Phase 6: Evaluate & Save ──
-    subgraph P7["✅ Deliver"]
+    subgraph DELIVER["Evaluate & deliver"]
         direction TB
-        S15(["Step 15 · Final Evaluation\nAccuracy 99.3% · F1 Macro 0.9927\nRaw + Normalized Confusion Matrix · Per-Class Report"])
-        S16(["Step 16 · Save\nmodel · scaler · encoder\ntransformers · metadata · state · confusion_matrix.png"])
-        S17(["Step 17 · SHAP Explainability\nGlobal Importance · Per-Class Summary\nTop-10 Grid · Waterfall Plots · All saved as PNG"])
+        S15["Step 15 · Final Evaluation on Test<br/>Accuracy 99.50% · F1 0.9950<br/>raw + normalized confusion matrix"]
+        S16["Step 16 · Save All Artifacts<br/>model · scaler · encoder · transformers · feature_names · metadata"]
+        S17["Step 17 · Explainability (SHAP)<br/>global · per-class · waterfall PNGs"]
         S15 --> S16 --> S17
     end
 
-    %% ── Connections ──
-    P1 --> P2 --> P3
-    P3 --> S7
-    S7 -->|"Train 3,809 rows"| P4
-    P4 --> P5 --> P6
-    P6 --> P7
+    S0 --> S1 --> S2 --> S3 --> S35 --> S4 --> S5 --> S6 --> SPLIT
+    SPLIT -->|"Train 80% of rows"| FIT
+    FIT --> MODEL --> DELIVER
+    SPLIT -.->|"Test 1,985 rows held out"| S15
 
-    %% ── Test set bypass (no leakage) ──
-    S7 -.->|"Test 953 rows held out"| S15
-
-    %% ── Styles ──
-    style P1 fill:#1a1a2e,stroke:#e94560,color:#fff
-    style P2 fill:#16213e,stroke:#0f3460,color:#fff
-    style P3 fill:#16213e,stroke:#0f3460,color:#fff
-    style S7 fill:#533483,stroke:#e94560,color:#fff
-    style P4 fill:#0f3460,stroke:#53a8b6,color:#fff
-    style P5 fill:#6a040f,stroke:#d00000,color:#fff
-    style P6 fill:#ff6d00,stroke:#ff9e00,color:#fff
-    style P7 fill:#2d6a4f,stroke:#40916c,color:#fff
+    style SPLIT fill:#533483,stroke:#e94560,color:#fff
+    style FIT fill:#0f3460,stroke:#53a8b6,color:#fff
+    style MODEL fill:#6a040f,stroke:#d00000,color:#fff
+    style DELIVER fill:#2d6a4f,stroke:#40916c,color:#fff
 ```
 
 ---
 
-## 2. Anti-Leakage Data Flow
+## 2. Anti-Leakage Design (why the split is the boundary)
 
 ```mermaid
 flowchart LR
-    RAW["Raw CSV\n4,800 rows × 15 cols"]
-    CLEAN["Cleaned\n4,762 rows × 14 feature cols"]
-    SPLIT["Train / Test Split\nStratified 80 / 20"]
-    TRAINSET["Training Set\n3,809 rows"]
-    TESTSET["Test Set\n953 rows\n(sealed until final evaluation)"]
-    FIT["Fit Transforms on Training Set Only\n(Outlier Smoothing · Feature Selection · RobustScaler)"]
-    APPLY_TRAIN["Apply → Training Set"]
-    APPLY_TEST["Apply → Test Set"]
-    MODEL["Train & Tune Models\non Training Set"]
-    EVALUATE["Final Evaluation\non Test Set (once only)"]
+    RAW["Raw CSV<br/>10,002 × 25"] --> CLEAN["Cleaned<br/>24 PCA cols (PC1–PC24) + label"]
+    CLEAN --> SPLIT["Step 7 · Stratified 80/20 split"]
+    SPLIT --> TRAIN["Train Set<br/>80% of rows"]
+    SPLIT --> TEST["Test Set<br/>1,985 rows · sealed"]
+    TRAIN --> FIT["Fit transforms on TRAIN only<br/>outliers · selection · scaling"]
+    FIT --> AP_TR["apply → train"] --> TRAINMODEL["train + tune models"]
+    FIT --> AP_TE["apply → test"] --> EVAL["Step 15 · evaluate once"]
+    TRAINMODEL --> EVAL
 
-    RAW --> CLEAN --> SPLIT
-    SPLIT --> TRAINSET
-    SPLIT --> TESTSET
-    TRAINSET --> FIT
-    FIT --> APPLY_TRAIN --> MODEL
-    FIT --> APPLY_TEST --> EVALUATE
-    MODEL --> EVALUATE
-
-    style TRAINSET fill:#2d6a4f,stroke:#40916c,color:#fff
-    style TESTSET fill:#9d0208,stroke:#d00000,color:#fff
+    style TRAIN fill:#2d6a4f,stroke:#40916c,color:#fff
+    style TEST fill:#9d0208,stroke:#d00000,color:#fff
     style FIT fill:#3a0ca3,stroke:#7209b7,color:#fff
-    style EVALUATE fill:#ff6d00,stroke:#ff9e00,color:#fff
 ```
+
+The input is already PCA-reduced acoustic features, so there is **no categorical encoding step**.
+Everything that learns from data (outlier parameters, the selected component list, the scaler) is
+fit **only on the training set** and applied unchanged to the sealed test set, which is touched
+once at Step 15.
 
 ---
 
-## 3. Feature Selection Pipeline
+## Step-by-Step — What Happens & Why
 
-```mermaid
-flowchart TD
-    START["14 Principal Component Features\n(PC1 through PC14 — already PCA-reduced)"]
-    NZV["Near-Zero Variance Check\nDrop if standard deviation less than 1e-6\n0 columns flagged"]
-    MI["Mutual Information Scores\nComputed on training data\nBottom 2 percent threshold = 0.094"]
-    RF["Random Forest Importance\n100 trees · max depth 8\nBottom 2 percent threshold = 0.021"]
-    CONSENSUS["Consensus Rule\nDrop only if in bottom 2 percent by BOTH\nMutual Information AND Random Forest"]
-    PRUNE["Drop PC14\n(only feature in bottom 2 percent by both metrics)"]
-    FINAL["13 Selected Features\n(PC1 through PC13)"]
+### Step 0 — Imports & Hardware Detection
+**What:** Imports every library used in the run and detects CPU core count and GPU/CUDA
+availability.
+**Why:** Importing up front makes the notebook fail fast if a dependency is missing. Detecting
+hardware lets later steps switch LightGBM/XGBoost to GPU automatically.
 
-    START --> NZV --> MI
-    NZV --> RF
-    MI --> CONSENSUS
-    RF --> CONSENSUS
-    CONSENSUS --> PRUNE --> FINAL
+### Step 1 — Configuration
+**What:** Builds the `CONFIG` dictionary — dataset path, random seed, output directory.
+**Why:** A single config block controls the run and makes the split, training, and tuning
+reproducible across runs.
 
-    style START fill:#16213e,stroke:#0f3460,color:#fff
-    style FINAL fill:#2d6a4f,stroke:#40916c,color:#fff
-    style CONSENSUS fill:#ff6d00,stroke:#ff9e00,color:#fff
-    style PRUNE fill:#9d0208,stroke:#d00000,color:#fff
-```
+### Step 2 — Data Loading
+**What:** Reads the PCA-feature CSV into a DataFrame and prints shape/dtypes/head.
+**Why:** Confirms the expected `PC1`–`PC24` + `label` layout arrived intact before any
+processing.
 
----
+### Step 3 — Column Overview
+**What:** Prints a per-column summary (dtype, nulls, unique count, sample value).
+**Why:** Gives a quick, concrete view of what's in the data before any decisions are made.
 
-## 4. Model Selection & Tuning Flow
+### Step 3.5 — Manual Setup (drop columns + target)
+**What:** Lets you drop any unwanted columns and sets `TARGET_COLUMN = 'label'`.
+**Why:** One explicit place to exclude non-features and pin the prediction target, so all
+downstream steps agree on what's a feature and what's the label.
 
-```mermaid
-flowchart TD
-    POOL["8 Candidate Models"]
-    RF2["Random Forest\n200 estimators"]
-    ET["Extra Trees\n200 estimators"]
-    LGB["LightGBM\n300 estimators · GPU enabled"]
-    HGB["HistGradientBoosting\n200 iterations"]
-    XGB["XGBoost\n200 estimators · CUDA GPU"]
-    LR["Logistic Regression\nmax iterations 1000"]
-    SVM["Support Vector Machine RBF\nprobability enabled"]
-    KNN["K-Nearest Neighbors\nk = 7"]
-    CV["5-Fold Stratified Cross-Validation\nF1 Macro Scoring · Parallel · 65.6 seconds"]
-    RANK["Rank All 8 Models by Cross-Validation Score"]
-    TOP2["Top 2 Selected\nLightGBM 0.9876 · ExtraTrees 0.9873"]
-    OPTUNA["Optuna Tree-structured Parzen Estimator Tuning\n30 trials · 300 second timeout per model · 5-Fold Cross-Validation"]
-    BEST["Best Model: ExtraTrees\nF1 Macro = 0.9927 · Accuracy = 99.3%"]
-    RUNNER["Runner-up: LightGBM\nF1 Macro = 0.9905"]
+### Step 4 — Data Profiling & Quality Audit
+**What:** Scans columns for nulls, duplicates, and dtype issues. Diagnostic only.
+**Why:** Cleaning should be evidence-driven — this separates "diagnose" from the "fix" in Step 6.
 
-    POOL --> RF2 & ET & LGB & HGB & XGB & LR & SVM & KNN
-    RF2 & ET & LGB & HGB & XGB & LR & SVM & KNN --> CV
-    CV --> RANK --> TOP2
-    TOP2 --> OPTUNA
-    OPTUNA --> BEST
-    OPTUNA --> RUNNER
+### Step 5 — Target Validation
+**What:** Confirms the target column is valid and analyzes class balance (6 classes).
+**Why:** Verifies the label is usable and near-balanced, so no resampling/weighting is needed and
+later per-class metrics are fair.
 
-    style BEST fill:#2d6a4f,stroke:#40916c,color:#fff
-    style OPTUNA fill:#ff6d00,stroke:#ff9e00,color:#fff
-    style POOL fill:#3a0ca3,stroke:#7209b7,color:#fff
-    style RUNNER fill:#16213e,stroke:#0f3460,color:#fff
-```
+### Step 6 — Auto-Clean
+**What:** Removes duplicate rows and any columns flagged in profiling.
+**Why:** Duplicates bias both training and evaluation; removing them keeps the dataset honest
+before the split.
 
----
+### Step 7 — Target Analysis & Stratified Train/Test Split (CRITICAL)
+**What:** Analyzes class distribution, then performs the **stratified 80/20** split; the test set
+(1,985 rows) is sealed here.
+**Why:** This is the **anti-leakage boundary** — splitting before any fitting guarantees the test
+set is free of training-derived statistics. Stratification preserves class proportions in both
+sets.
 
-## 5. Outlier Handling Strategy
+### Step 8 — Outlier Smoothing (train-fit)
+**What:** Per PCA column, detects outliers on the training set and applies the lowest-skew
+smoothing transform (winsorize / log1p / sqrt / Yeo-Johnson). Fit on train, applied to both.
+**Why:** Smoothing rather than dropping rows preserves every sample; fitting on train only keeps
+the test set leakage-free.
 
-```mermaid
-flowchart TD
-    COL["For Each Numeric Feature Column\n(14 columns · fitted on training data only)"]
-    DETECT["Detect Outliers via Interquartile Range\nBounds = Q1 minus 1.5 times IQR  to  Q3 plus 1.5 times IQR"]
-    CHECK{"> 0.3% of values are outliers?"}
-    SKIP["Skip — within tolerance\n(no treatment needed)"]
-    TEST["Test All 4 Smoothing Strategies"]
-    W["Winsorize\nClip values to IQR bounds"]
-    L["Log1p\nLog transform for right-skew\nnon-negative columns only"]
-    SQ["Square Root\nModerate skew\nnon-negative columns only"]
-    YJ["Yeo-Johnson Power Transform\nWorks on any distribution\nincluding negative values"]
-    PICK["Pick Strategy with Lowest Absolute Skewness"]
-    APPLY["Apply to Training and Test Sets\nusing training-fitted parameters"]
+### Step 9 — Loose Feature Selection (train-fit)
+**What:** Consensus of mutual information and random-forest importance; drops a component only if
+it ranks lowest by **both**. Result: **24 → 23** (drops `PC17`). ("Loose" = deliberately
+conservative.)
+**Why:** Requiring two metrics to agree avoids discarding a useful component on a single noisy
+estimate, while still removing the one that carries essentially no signal.
 
-    COL --> DETECT --> CHECK
-    CHECK -->|No| SKIP
-    CHECK -->|Yes| TEST
-    TEST --> W & L & SQ & YJ
-    W & L & SQ & YJ --> PICK --> APPLY
+### Step 10 — Feature Scaling (train-fit)
+**What:** `RobustScaler`, fit on train and applied to both.
+**Why:** Centers on the median and scales by IQR so residual outliers don't dominate, giving all
+candidate models a fair, consistently scaled input.
 
-    style PICK fill:#ff6d00,stroke:#ff9e00,color:#fff
-    style APPLY fill:#2d6a4f,stroke:#40916c,color:#fff
-    style SKIP fill:#16213e,stroke:#0f3460,color:#fff
-```
+### Step 11 — Model Shortlisting
+**What:** Selects which of up to 8 candidate models to train, given data shape and hardware.
+**Why:** Skips models ill-suited to the data/hardware so the search stays efficient.
 
-**Results:** 13 of 14 columns treated — 11 columns used Yeo-Johnson, 2 columns used Winsorize, 1 column skipped.
+### Step 12 — Cross-Validated Training & Ranking
+**What:** 5-fold stratified CV on every shortlisted model, scored by **F1 macro**.
+**Why:** CV gives a stable generalization estimate; F1 macro weights all 6 classes equally so no
+class is hidden behind the others.
 
----
+### Step 13 — Top-K Model Selection
+**What:** Keeps the top 2 models by CV score for tuning.
+**Why:** Concentrates the (expensive) tuning budget on the strongest candidates.
 
-## 6. Hardware Utilization
+### Step 14 — Hyperparameter Tuning (Optuna TPE)
+**What:** Tunes the top 2 with Optuna's TPE sampler, 5-fold CV per trial.
+**Why:** Bayesian (TPE) search learns from earlier trials to focus on promising hyperparameters —
+more sample-efficient than grid/random search. **LightGBM wins after tuning.**
 
-```mermaid
-flowchart LR
-    HW["Hardware Detection\n(on startup)"]
-    GPU{"CUDA GPU Available?"}
-    YES_GPU["NVIDIA GeForce GTX 1650 Ti detected\nXGBoost → device = cuda\nLightGBM → device = gpu"]
-    NO_GPU["No GPU detected\nAll models → CPU\nn_jobs = -1 (all cores)"]
-    CORES["CPU Detection\n8 cores detected\nN_JOBS = 7 (cores minus 1)"]
-    PARALLEL["All Cross-Validation folds run in parallel\njoblib.Parallel for sample-weighted models"]
+### Step 15 — Final Evaluation on Test Set
+**What:** Scores the tuned best model on the sealed test set (first and only scoring use) and
+builds the raw + normalized confusion matrix and per-class report.
+**Why:** A single untouched evaluation is the honest performance measure.
+**Result: LightGBM, 99.50% accuracy, F1 0.9950** (runner-up Extra Trees, F1 0.9925).
 
-    HW --> GPU
-    GPU -->|Yes| YES_GPU
-    GPU -->|No| NO_GPU
-    YES_GPU --> CORES
-    NO_GPU --> CORES
-    CORES --> PARALLEL
+### Step 16 — Save All Artifacts
+**What:** Saves model, scaler, label encoder, outlier transformers, feature names, and metadata
+to a timestamped folder (`{Model}_{dd-Mon-yyyy}_{HH-MM-SS}/`).
+**Why:** Inference must reuse the exact transforms and component order from training; bundling
+them makes the run reproducible and deployable. See `demo-api-input-data-sample/` for example
+inputs.
 
-    style YES_GPU fill:#2d6a4f,stroke:#40916c,color:#fff
-    style NO_GPU fill:#16213e,stroke:#0f3460,color:#fff
-    style PARALLEL fill:#ff6d00,stroke:#ff9e00,color:#fff
-```
-
----
-
-## 7. Class Distribution & Target Encoding
-
-```mermaid
-flowchart TD
-    RAW_LABEL["Raw Label Column\n6 Classes · 800 samples each\nTotal 4,800 rows · Perfectly Balanced"]
-    DEDUP["After Duplicate Removal\n38 rows dropped\nTotal 4,762 rows"]
-    ENCODE["LabelEncoder\nAnxiety=0 · Bipolar=1 · Depression=2\nNormal=3 · Stress=4 · Suicidal=5"]
-    IMBALANCE["Imbalance Ratio Check\nMax class / Min class = 1.03x\nThreshold = 1.5x"]
-    STRATEGY["Imbalance Strategy = NONE\nNo oversampling or class weighting needed\nAll models use default class weights"]
-    SPLIT2["Stratified Split preserves\n~16.7% per class in both\nTraining Set and Test Set"]
-
-    RAW_LABEL --> DEDUP --> ENCODE --> IMBALANCE --> STRATEGY --> SPLIT2
-
-    style RAW_LABEL fill:#16213e,stroke:#0f3460,color:#fff
-    style STRATEGY fill:#2d6a4f,stroke:#40916c,color:#fff
-    style ENCODE fill:#3a0ca3,stroke:#7209b7,color:#fff
-```
-
----
-
-## 8. Final Model Performance
-
-```mermaid
-flowchart TD
-    WINNER["Best Model: Extra Trees Classifier\n(after Optuna tuning)"]
-
-    subgraph PARAMS["Tuned Hyperparameters"]
-        P1_["n_estimators = 400"]
-        P2_["max_depth = 26"]
-        P3_["min_samples_split = 2"]
-        P4_["min_samples_leaf = 1"]
-        P5_["max_features = sqrt"]
-    end
-
-    subgraph METRICS["Test Set Performance\n(953 held-out samples · evaluated once only)"]
-        M1["Accuracy = 99.27%"]
-        M2["F1 Macro = 0.9927"]
-        M3["Balanced Accuracy = 0.9927"]
-        M4["F1 Weighted = 0.9927"]
-    end
-
-    subgraph PERCLASS["Per-Class F1 Scores"]
-        C1["Anxiety → F1 = 1.00"]
-        C2["Bipolar → F1 = 1.00"]
-        C3["Depression → F1 = 0.98"]
-        C4["Normal → F1 = 0.98"]
-        C5["Stress → F1 = 1.00"]
-        C6["Suicidal → F1 = 1.00"]
-    end
-
-    WINNER --> PARAMS
-    WINNER --> METRICS
-    WINNER --> PERCLASS
-
-    style WINNER fill:#2d6a4f,stroke:#40916c,color:#fff
-    style METRICS fill:#1b4332,stroke:#52b788,color:#fff
-    style PERCLASS fill:#3a0ca3,stroke:#7209b7,color:#fff
-    style PARAMS fill:#16213e,stroke:#0f3460,color:#fff
-```
-
----
-
-## 9. Saved Artifacts
-
-```mermaid
-flowchart LR
-    PIPELINE["Pipeline Run Complete"]
-    FOLDER["voice_ml_pipeline_output /\n{Model}_{dd-Mon-yyyy}_{HH-MM-SS} /"]
-    M["best_model.joblib\nTrained classifier"]
-    SC["scaler.joblib\nFitted RobustScaler"]
-    LE["label_encoder.joblib\n6 class label mappings"]
-    EA["encoding_artifacts.joblib\nNo categorical encoding needed\n(PCA-only pipeline)"]
-    OT["outlier_transformers.joblib\nPer-column outlier transform parameters"]
-    FN["feature_names.json\n13 selected PCA feature names"]
-    MD["model_metadata.json\nMetrics · best params · class names · hardware info"]
-    PS["pipeline_state.json\nComplete run state from all steps"]
-    CM["confusion_matrix.png\nRaw + Normalized side-by-side"]
-    SH1["shap_global_importance.png\nTop 20 features by mean SHAP"]
-    SH2["shap_summary_{class}.png\nBeeswarm for top class"]
-    SH3["shap_per_class_top10.png\nTop-10 features per class grid"]
-    SH4["shap_waterfall_{class}.png\nOne waterfall per class"]
-
-    PIPELINE --> FOLDER
-    FOLDER --> M & SC & LE & EA & OT & FN & MD & PS & CM & SH1 & SH2 & SH3 & SH4
-
-    style PIPELINE fill:#3a0ca3,stroke:#7209b7,color:#fff
-    style FOLDER fill:#ff6d00,stroke:#ff9e00,color:#fff
-    style M fill:#2d6a4f,stroke:#40916c,color:#fff
-    style CM fill:#1b4332,stroke:#52b788,color:#fff
-    style SH1 fill:#1b4332,stroke:#52b788,color:#fff
-    style SH2 fill:#1b4332,stroke:#52b788,color:#fff
-    style SH3 fill:#1b4332,stroke:#52b788,color:#fff
-    style SH4 fill:#1b4332,stroke:#52b788,color:#fff
-```
+### Step 17 — Model Explainability (SHAP)
+**What:** Computes SHAP values on the test set; saves global importance, per-class, and waterfall
+plots.
+**Why:** Explains *why* each prediction was made — which acoustic components push a sample toward
+a given class — so results can be reviewed and trusted rather than taken on faith.
