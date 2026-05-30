@@ -313,10 +313,32 @@ myenv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+### Torch Installation Fix (Copy-Paste)
+
+If `pip install -r requirements.txt` fails around `torch`, use this exact sequence:
+
+```bash
+# 1) Make sure no notebook/kernel is using the environment
+# 2) Upgrade pip in the same venv
+python -m pip install --upgrade pip
+
+# 3) Install torch first
+pip install torch==2.7.1
+
+# 4) Install the rest
+pip install -r requirements.txt
+```
+
+If you see a Windows file-lock error (WinError 32), close VS Code terminals/kernels using `myenv`, then run:
+
+```bash
+pip install -r requirements.txt
+```
+
 ### Optional: GPU Support
 
 ```bash
-pip install torch --index-url https://download.pytorch.org/whl/cu118
+pip install torch==2.7.1 --index-url https://download.pytorch.org/whl/cu118
 ```
 
 When a CUDA-capable GPU is detected, XGBoost uses `device='cuda'` and LightGBM uses `device='gpu'` automatically.
