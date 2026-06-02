@@ -1,0 +1,28 @@
+VOICE
+
+0. Loading required libraries and hardware detection (CPU/GPU)
+1. Set the dataset path and config values
+2. Load the dataset
+3. Show column names and overview
+3.5 Manual setup: optional column deletion + select target column
+4. Check nulls, duplicates, constant columns, non-numeric columns (flagging)
+5. Validate target column and class distribution
+6. Auto cleanup: remove flagged columns, remove non-numeric feature columns, leakage check, impute nulls
+7. Check class imbalance, then split data into train/test using stratified sampling, and do label encoding of target
+8. Outlier handling with smoothing only (IQR-based), no row deletion, fit on train and apply to test
+9. Loose feature selection for PCA features: near-zero variance + bottom MI and RF importance consensus
+10. Feature scaling (RobustScaler), fit on train and apply on test
+11. Model shortlisting: Random Forest, Extra Trees, LightGBM, HistGradientBoost, XGBoost, and conditional Logistic/SVM/KNN
+12. Model training with cross-validation (F1 macro ranking)
+13. Select top 2 models
+14. Hyperparameter tuning of top 2 using Optuna
+15. Final evaluation on test data using:
+Accuracy
+Balanced Accuracy
+F1 macro (primary)
+F1 weighted
+Precision macro/weighted
+Recall macro/weighted
+Confusion matrix + classification report
+16. Save artifacts (best model, scaler, label encoder, feature names, pipeline state, metadata, etc.)
+17. SHAP analysis for explainability (global, per-class, waterfall plots)
